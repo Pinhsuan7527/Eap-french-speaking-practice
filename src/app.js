@@ -8,9 +8,11 @@ const seedMap = [
 ];
 
 const state = loadState();
-state.profile ||= { configured: false, level: 'A2', language: 'zh', topic: 'daily' };
+state.profile ||= { configured: false, level: 'A2', language: 'zh', topic: 'daily', voice: 'claire' };
+state.profile.voice ||= 'claire';
 let session = { step: 'scenario', answer: '', selectedGaps: [], transferAnswer: '', transferDone: false };
 let placement = { step: 0, answers: [], draft: '' };
+let vocabTest = { selected: new Set(), startedAt: 0, timer: null };
 
 const copy = {
   zh: { today:'今日练习', map:'Active Map', streak:'连续练习', viewMap:'查看 Active Map', express:'把想法说出来', real:'日常场景', answer:'你的回答', speak:'按下说法语', listen:'听题目', hint:'不追求完美，先自然表达', find:'找出我的 retrieval gaps', saved:'你的练习仅保存在此设备', words:'个词', gapTitle:'你差一点就说出来了', analysis:'你的意思很清楚。下面 3 个不是“错误”，而是能帮你在日常对话中更自然表达的 retrieval gaps。', activate:'开始激活', only:'本轮只激活 3 个高价值表达', quick:'快速激活', mouth:'先把表达放进嘴里', complete:'完成', next:'进入新情境', transfer:'换个情境，再调用一次', noHint:'不提示目标词', transferHint:'不必刻意使用所有新表达。像真实对话一样回答。', finish:'完成今日练习', settings:'学习设置' },
@@ -21,9 +23,9 @@ const t = key => (copy[state.profile.language] || copy.zh)[key] || copy.zh[key] 
 
 const scenarios = {
   A2: {
-    zh:{eyebrow:'A2 · 日常生活',prompt:'今天下班或放学后，你想做什么？说说你的简单计划和原因。',helper:'用 3–5 句法语回答。你可以说时间、地点和一起去的人。',transfer:'你的朋友周六有空。你建议你们一起做什么？为什么？'},
-    en:{eyebrow:'A2 · DAILY LIFE',prompt:'What would you like to do after work or school today? Describe your simple plan and why.',helper:'Answer in 3–5 French sentences. You can mention the time, place, and who will join you.',transfer:'Your friend is free on Saturday. What do you suggest doing together, and why?'},
-    es:{eyebrow:'A2 · VIDA DIARIA',prompt:'¿Qué quieres hacer hoy después del trabajo o de clase? Explica tu plan y por qué.',helper:'Responde con 3–5 frases en francés. Puedes decir la hora, el lugar y con quién vas.',transfer:'Tu amigo está libre el sábado. ¿Qué propones hacer juntos y por qué?'}
+    zh:{eyebrow:'A2 · 简单对话',prompt:'Bonjour！你今天怎么样？今天准备做什么？',helper:'像和朋友聊天一样，用 2–4 句简单法语回答。',transfer:'朋友问你周末有没有空。你会怎么回答？'},
+    en:{eyebrow:'A2 · SIMPLE DIALOGUE',prompt:'Bonjour! How are you today, and what are you going to do?',helper:'Answer like you are chatting with a friend, using 2–4 simple French sentences.',transfer:'A friend asks if you are free this weekend. How do you answer?'},
+    es:{eyebrow:'A2 · DIÁLOGO SENCILLO',prompt:'Bonjour. ¿Cómo estás hoy y qué vas a hacer?',helper:'Responde como si hablaras con un amigo, con 2–4 frases sencillas en francés.',transfer:'Un amigo te pregunta si estás libre este fin de semana. ¿Qué respondes?'}
   },
   B1: {
     zh:{eyebrow:'B1 · 日常选择',prompt:'你更喜欢在家做饭还是出去吃？请说说你的习惯、偏好和原因。',helper:'用法语回答，并举一个最近的例子。',transfer:'朋友来你的城市待一天。你会安排在哪里吃饭？为什么？'},
@@ -37,7 +39,7 @@ const scenarios = {
   }
 };
 function currentScenario(){ return scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh; }
-function frenchAudioPrompt(){ return {A2:"Qu’est-ce que tu veux faire après le travail ou les cours aujourd’hui ? Explique ton programme et pourquoi.",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?"}[state.profile.level]; }
+function frenchAudioPrompt(){ return {A2:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?"}[state.profile.level]; }
 
 function loadState() {
   try {
@@ -83,15 +85,43 @@ function progress(current) {
 
 function renderWelcome(){
   const welcome = {
-    zh:{kicker:'你的法语开口训练，从这里开始',title:'先测试，再找到合适起点。',body:'选择你最容易理解的界面语言，然后完成 3 个逐渐变难的法语口语问题。系统会自动判断你的起始等级。',language:'界面语言',level:'测试将评估',levelHelp:'表达长度 · 连接词 · 理由与细节 · 抽象观点',topic:'练习将从这里开始',daily:'按能力自适应',start:'开始 3 分钟分级测试'},
-    en:{kicker:'YOUR FRENCH SPEAKING PRACTICE',title:'Test first. Start at the right level.',body:'Choose your interface language, then answer three French speaking questions that gradually get harder. Your starting level will be estimated automatically.',language:'Interface language',level:'The test evaluates',levelHelp:'Length · connectors · reasons and detail · abstract ideas',topic:'Your practice path',daily:'Adaptive to your ability',start:'Start the 3-minute level test'},
-    es:{kicker:'TU PRÁCTICA ORAL DE FRANCÉS',title:'Primero prueba tu nivel.',body:'Elige el idioma de la interfaz y responde a tres preguntas orales en francés que aumentan de dificultad. Estimaremos automáticamente tu nivel inicial.',language:'Idioma de la interfaz',level:'La prueba evalúa',levelHelp:'Longitud · conectores · razones y detalles · ideas abstractas',topic:'Tu itinerario',daily:'Adaptado a tu capacidad',start:'Empezar la prueba de 3 minutos'}
+    zh:{kicker:'你的法语开口训练，从这里开始',title:'一分钟，找到合适起点。',body:'选出你真正认识、能理解的法语单词。系统会根据词汇难度快速估算你的起始等级。',language:'界面语言',level:'词汇测试范围',levelHelp:'日常高频词 · 常用表达 · 抽象词汇',topic:'练习将从这里开始',daily:'按能力自适应',start:'开始 1 分钟词汇测试'},
+    en:{kicker:'YOUR FRENCH SPEAKING PRACTICE',title:'Find your starting point in one minute.',body:'Select only the French words you genuinely understand. Their difficulty gives you a quick starting-level estimate.',language:'Interface language',level:'Vocabulary range',levelHelp:'Daily words · useful expressions · abstract vocabulary',topic:'Your practice path',daily:'Adaptive to your ability',start:'Start the 1-minute vocabulary test'},
+    es:{kicker:'TU PRÁCTICA ORAL DE FRANCÉS',title:'Encuentra tu nivel en un minuto.',body:'Selecciona solo las palabras francesas que realmente comprendes. Su dificultad permite estimar rápidamente tu nivel inicial.',language:'Idioma de la interfaz',level:'Rango de vocabulario',levelHelp:'Palabras cotidianas · expresiones útiles · vocabulario abstracto',topic:'Tu itinerario',daily:'Adaptado a tu capacidad',start:'Empezar la prueba de vocabulario'}
   };
   const w=welcome[state.profile.language]||welcome.zh;
-  document.querySelector('#app').innerHTML=shell(`<section class="welcome-page"><div class="welcome-copy"><p class="overline">${w.kicker}</p><h1>${w.title}</h1><p>${w.body}</p><div class="welcome-feature"><span>${icon('mic',23)}</span><div><strong>Speak first</strong><small>French voice → level estimate → adaptive practice</small></div></div></div><div class="setup-card"><label>${w.language}</label><div class="choice-grid language-choice">${[['zh','中文'],['en','English'],['es','Español']].map(([v,l])=>`<button data-language="${v}" class="choice ${state.profile.language===v?'selected':''}">${l}</button>`).join('')}</div><label>${w.level}</label><div class="assessment-scale"><div><strong>A2</strong><span>daily basics</span></div><i>${icon('arrow',15)}</i><div><strong>B1</strong><span>reasons</span></div><i>${icon('arrow',15)}</i><div><strong>B2</strong><span>deep ideas</span></div></div><p class="level-help">${w.levelHelp}</p><label>${w.topic}</label><button class="topic-choice selected"><span>↗</span><div><strong>${w.daily}</strong><small>simple daily life → opinions → deeper discussion</small></div>${icon('check',17)}</button><button class="primary" id="start-profile">${w.start} ${icon('arrow',18)}</button></div></section>`,'practice');
+  document.querySelector('#app').innerHTML=shell(`<section class="welcome-page"><div class="welcome-copy"><p class="overline">${w.kicker}</p><h1>${w.title}</h1><p>${w.body}</p><div class="welcome-feature"><span>${icon('spark',23)}</span><div><strong>1-minute check</strong><small>known words → level estimate → adaptive practice</small></div></div></div><div class="setup-card"><label>${w.language}</label><div class="choice-grid language-choice">${[['zh','中文'],['en','English'],['es','Español']].map(([v,l])=>`<button data-language="${v}" class="choice ${state.profile.language===v?'selected':''}">${l}</button>`).join('')}</div><label>Voix française · French voice</label><div class="voice-choice">${[['claire','Claire','♀'],['julien','Julien','♂'],['amelie','Amélie','♀'],['louis','Louis','♂']].map(([v,n,g])=>`<button data-voice="${v}" class="voice-option ${state.profile.voice===v?'selected':''}"><span>${g}</span><strong>${n}</strong><small>Écouter</small></button>`).join('')}</div><label>${w.level}</label><div class="assessment-scale"><div><strong>A2</strong><span>daily basics</span></div><i>${icon('arrow',15)}</i><div><strong>B1</strong><span>conversation</span></div><i>${icon('arrow',15)}</i><div><strong>B2</strong><span>deep ideas</span></div></div><p class="level-help">${w.levelHelp}</p><button class="primary" id="start-profile">${w.start} ${icon('arrow',18)}</button></div></section>`,'practice');
   bindNav();
   document.querySelectorAll('[data-language]').forEach(b=>b.onclick=()=>{state.profile.language=b.dataset.language;saveState();renderWelcome();});
-  document.querySelector('#start-profile').onclick=()=>{placement={step:0,answers:[],draft:''};renderPlacement();};
+  document.querySelectorAll('[data-voice]').forEach(b=>b.onclick=()=>{state.profile.voice=b.dataset.voice;saveState();document.querySelectorAll('[data-voice]').forEach(x=>x.classList.toggle('selected',x===b));speakFrench("Bonjour, je m’appelle "+b.querySelector('strong').textContent+". On commence ?");});
+  document.querySelector('#start-profile').onclick=()=>renderVocabularyTest();
+}
+
+const vocabularyBank=[
+  ['bonjour','A1'],['maison','A1'],['manger','A1'],['famille','A1'],['aujourd’hui','A1'],['petit','A1'],
+  ['souvent','A2'],['choisir','A2'],['rendez-vous','A2'],['oublier','A2'],['avoir besoin de','A2'],['quartier','A2'],
+  ['pourtant','B1'],['améliorer','B1'],['réussir à','B1'],['habitude','B1'],['conseiller','B1'],['se rendre compte','B1'],
+  ['enjeu','B2'],['nuancer','B2'],['bouleverser','B2'],['épanouissement','B2'],['néanmoins','B2'],['incontournable','B2']
+];
+
+function renderVocabularyTest(){
+  if(vocabTest.timer)clearInterval(vocabTest.timer);vocabTest={selected:new Set(),startedAt:Date.now(),timer:null};
+  const c={zh:{tag:'1 分钟词汇量测试',title:'选出你真正认识的单词',help:'只选择你能解释意思，或能在句子中认出的词。不会扣分，不确定就跳过。',known:'已认识',finish:'完成并估算等级'},en:{tag:'1-MINUTE VOCABULARY CHECK',title:'Select the words you genuinely know',help:'Choose a word only if you can explain it or recognize it in a sentence. Skip anything uncertain.',known:'selected',finish:'Finish and estimate my level'},es:{tag:'PRUEBA DE VOCABULARIO · 1 MIN',title:'Selecciona las palabras que realmente conoces',help:'Elige una palabra solo si puedes explicar su significado o reconocerla en una frase.',known:'seleccionadas',finish:'Terminar y estimar mi nivel'}}[state.profile.language];
+  document.querySelector('#app').innerHTML=shell(`<section class="vocab-page"><header><button class="back" id="exit-vocab">←</button><div><p class="overline">${c.tag}</p><h1>${c.title}</h1></div><div class="countdown"><span id="vocab-time">1:00</span><small>${c.known}: <b id="known-count">0</b></small></div></header><p class="vocab-help">${c.help}</p><div class="word-cloud">${vocabularyBank.map(([word,level],i)=>`<button class="word-chip" data-word-index="${i}" aria-pressed="false"><span>${word}</span><i>${icon('check',13)}</i></button>`).join('')}</div><button class="primary finish-vocab" id="finish-vocab">${c.finish} ${icon('arrow',18)}</button></section>`,'practice');
+  bindNav();document.querySelector('#exit-vocab').onclick=()=>{clearInterval(vocabTest.timer);renderWelcome();};document.querySelectorAll('[data-word-index]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.wordIndex);vocabTest.selected.has(i)?vocabTest.selected.delete(i):vocabTest.selected.add(i);b.classList.toggle('selected');b.setAttribute('aria-pressed',b.classList.contains('selected'));document.querySelector('#known-count').textContent=vocabTest.selected.size;});document.querySelector('#finish-vocab').onclick=()=>{clearInterval(vocabTest.timer);renderVocabularyResult();};vocabTest.timer=setInterval(()=>{const left=Math.max(0,60-Math.floor((Date.now()-vocabTest.startedAt)/1000));const el=document.querySelector('#vocab-time');if(el)el.textContent=`0:${String(left).padStart(2,'0')}`;if(left===0){clearInterval(vocabTest.timer);renderVocabularyResult();}},1000);
+}
+
+function vocabularyLevel(){
+  const counts={A1:0,A2:0,B1:0,B2:0};vocabTest.selected.forEach(i=>counts[vocabularyBank[i][1]]++);
+  if(counts.B2>=3&&counts.B1>=3)return 'B2';
+  if(counts.B1>=3&&counts.A2>=3)return 'B1';
+  return 'A2';
+}
+
+function renderVocabularyResult(){
+  const level=vocabularyLevel();state.profile.level=level;
+  const content={zh:{tag:'词汇测试完成',title:`建议从 ${level} 开始`,desc:{A2:'先从问候、点餐、购物、朋友和周末计划等简单对话开始。',B1:'从自然的日常对话开始，逐渐练习解释理由、讲述经历和表达偏好。',B2:'日常对话会快速热身，之后进入工作、社会现象与价值判断等深层讨论。'}[level],start:'进入第一次对话',retry:'重新测试'},en:{tag:'VOCABULARY CHECK COMPLETE',title:`Start at ${level}`,desc:{A2:'Begin with simple conversations about greetings, food, shopping, friends, and weekend plans.',B1:'Start with natural daily conversation, then practise reasons, experiences, and preferences.',B2:'Warm up with daily language, then move into deeper discussions about work, society, and values.'}[level],start:'Start my first dialogue',retry:'Retake test'},es:{tag:'PRUEBA TERMINADA',title:`Empieza en ${level}`,desc:{A2:'Empieza con conversaciones sencillas sobre saludos, comida, compras, amigos y planes.',B1:'Empieza con conversaciones cotidianas y practica razones, experiencias y preferencias.',B2:'Calienta con lenguaje cotidiano y pasa a debates sobre trabajo, sociedad y valores.'}[level],start:'Empezar el primer diálogo',retry:'Repetir'}}[state.profile.language];
+  document.querySelector('#app').innerHTML=shell(`<section class="result-page"><div class="level-orbit"><span>${level}</span></div><p class="overline">${content.tag}</p><h1>${content.title}</h1><p>${content.desc}</p><div class="level-path"><span class="${level==='A2'?'active':''}"><b>A2</b> Simple dialogue</span><i></i><span class="${level==='B1'?'active':''}"><b>B1</b> Daily conversation</span><i></i><span class="${level==='B2'?'active':''}"><b>B2</b> Deep discussion</span></div><div class="complete-actions"><button class="secondary" id="retry-vocab">${content.retry}</button><button class="primary compact" id="accept-vocab">${content.start} ${icon('arrow',18)}</button></div></section>`,'practice');bindNav();document.querySelector('#retry-vocab').onclick=renderVocabularyTest;document.querySelector('#accept-vocab').onclick=()=>{state.profile.configured=true;state.day=1;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
 }
 
 const placementQuestions={
@@ -223,9 +253,10 @@ function speakFrench(text) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'fr-FR'; utterance.rate = .9;
-  const frenchVoice = window.speechSynthesis.getVoices().find(v => v.lang.toLowerCase().startsWith('fr'));
-  if (frenchVoice) utterance.voice = frenchVoice;
+  utterance.lang = 'fr-FR';
+  const presets={claire:{names:/audrey|amélie|amelie|céline|celine|female|femme/i,rate:.92,pitch:1.04,index:0},julien:{names:/thomas|henri|daniel|male|homme/i,rate:.9,pitch:.9,index:1},amelie:{names:/marie|aurelie|aurélie|lea|léa|female|femme/i,rate:.86,pitch:1.1,index:2},louis:{names:/louis|paul|remy|rémy|male|homme/i,rate:.96,pitch:.86,index:3}};
+  const preset=presets[state.profile.voice]||presets.claire;const voices=window.speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith('fr'));const selected=voices.find(v=>preset.names.test(v.name))||voices[preset.index%Math.max(voices.length,1)];
+  utterance.rate=preset.rate;utterance.pitch=preset.pitch;if(selected)utterance.voice=selected;
   window.speechSynthesis.speak(utterance);
 }
 
