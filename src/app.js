@@ -8,21 +8,40 @@ const seedMap = [
 ];
 
 const state = loadState();
+state.profile ||= { configured: false, level: 'A2', language: 'zh', topic: 'daily' };
 let session = { step: 'scenario', answer: '', selectedGaps: [], transferAnswer: '', transferDone: false };
 
-const scenarios = [
-  {
-    eyebrow: 'DAY 2 · 工作与选择',
-    prompt: '你的一位朋友收到了一份薪水更高、但工作压力也更大的 offer。他问你会怎么选。',
-    helper: '用法语回答。解释你的选择，以及什么对你来说更重要。',
-    transfer: '现在换一个情境：你会选择市中心的小公寓，还是郊区更大的房子？请自然地表达你的取舍。'
+const copy = {
+  zh: { today:'今日练习', map:'Active Map', streak:'连续练习', viewMap:'查看 Active Map', express:'把想法说出来', real:'日常场景', answer:'你的回答', speak:'按下说法语', listen:'听题目', hint:'不追求完美，先自然表达', find:'找出我的 retrieval gaps', saved:'你的练习仅保存在此设备', words:'个词', gapTitle:'你差一点就说出来了', analysis:'你的意思很清楚。下面 3 个不是“错误”，而是能帮你在日常对话中更自然表达的 retrieval gaps。', activate:'开始激活', only:'本轮只激活 3 个高价值表达', quick:'快速激活', mouth:'先把表达放进嘴里', complete:'完成', next:'进入新情境', transfer:'换个情境，再调用一次', noHint:'不提示目标词', transferHint:'不必刻意使用所有新表达。像真实对话一样回答。', finish:'完成今日练习', settings:'学习设置' },
+  en: { today:'Today’s practice', map:'Active Map', streak:'day streak', viewMap:'View Active Map', express:'Say what you mean', real:'Everyday situation', answer:'Your answer', speak:'Speak in French', listen:'Listen', hint:'Don’t aim for perfect. Speak naturally first.', find:'Find my retrieval gaps', saved:'Your practice stays on this device', words:'words', gapTitle:'You almost had the words', analysis:'Your meaning is clear. These are not simply “mistakes” — they are three useful retrieval gaps for more natural everyday French.', activate:'Activate expressions', only:'Only 3 high-value expressions this round', quick:'QUICK ACTIVATION', mouth:'Put the expressions into your own speech', complete:'Completed', next:'Try a new situation', transfer:'New situation, retrieve again', noHint:'No target-word hints', transferHint:'You do not need to force every expression. Answer as in a real conversation.', finish:'Finish today’s practice', settings:'Learning settings' },
+  es: { today:'Práctica de hoy', map:'Active Map', streak:'días seguidos', viewMap:'Ver Active Map', express:'Expresa lo que piensas', real:'Situación cotidiana', answer:'Tu respuesta', speak:'Hablar en francés', listen:'Escuchar', hint:'No busques la perfección. Habla con naturalidad.', find:'Encontrar mis retrieval gaps', saved:'Tu práctica se guarda solo en este dispositivo', words:'palabras', gapTitle:'Casi encontraste las palabras', analysis:'Tu idea está clara. No son simples “errores”, sino tres retrieval gaps útiles para hablar francés cotidiano con más naturalidad.', activate:'Activar expresiones', only:'Solo 3 expresiones útiles en esta ronda', quick:'ACTIVACIÓN RÁPIDA', mouth:'Lleva las expresiones a tu habla', complete:'Completado', next:'Probar otra situación', transfer:'Otro contexto, vuelve a recordar', noHint:'Sin pistas', transferHint:'No hace falta forzar todas las expresiones. Responde como en una conversación real.', finish:'Terminar la práctica', settings:'Ajustes de aprendizaje' }
+};
+const t = key => (copy[state.profile.language] || copy.zh)[key] || copy.zh[key] || key;
+
+const scenarios = {
+  A2: {
+    zh:{eyebrow:'A2 · 日常生活',prompt:'今天下班或放学后，你想做什么？说说你的简单计划和原因。',helper:'用 3–5 句法语回答。你可以说时间、地点和一起去的人。',transfer:'你的朋友周六有空。你建议你们一起做什么？为什么？'},
+    en:{eyebrow:'A2 · DAILY LIFE',prompt:'What would you like to do after work or school today? Describe your simple plan and why.',helper:'Answer in 3–5 French sentences. You can mention the time, place, and who will join you.',transfer:'Your friend is free on Saturday. What do you suggest doing together, and why?'},
+    es:{eyebrow:'A2 · VIDA DIARIA',prompt:'¿Qué quieres hacer hoy después del trabajo o de clase? Explica tu plan y por qué.',helper:'Responde con 3–5 frases en francés. Puedes decir la hora, el lugar y con quién vas.',transfer:'Tu amigo está libre el sábado. ¿Qué propones hacer juntos y por qué?'}
+  },
+  B1: {
+    zh:{eyebrow:'B1 · 日常选择',prompt:'你更喜欢在家做饭还是出去吃？请说说你的习惯、偏好和原因。',helper:'用法语回答，并举一个最近的例子。',transfer:'朋友来你的城市待一天。你会安排在哪里吃饭？为什么？'},
+    en:{eyebrow:'B1 · EVERYDAY CHOICES',prompt:'Do you prefer cooking at home or eating out? Explain your habits, preference, and reasons.',helper:'Answer in French and include a recent example.',transfer:'A friend visits your city for one day. Where would you take them to eat, and why?'},
+    es:{eyebrow:'B1 · ELECCIONES COTIDIANAS',prompt:'¿Prefieres cocinar en casa o comer fuera? Explica tus hábitos, preferencias y razones.',helper:'Responde en francés e incluye un ejemplo reciente.',transfer:'Un amigo visita tu ciudad por un día. ¿Dónde comeríais y por qué?'}
+  },
+  B2: {
+    zh:{eyebrow:'B2 · 生活方式',prompt:'远程办公让生活更自由，也可能让工作和私人生活的界限消失。你怎么看？',helper:'用法语表达立场、一个理由和一个具体例子。',transfer:'如果公司要求每周回办公室三天，你会如何评价这个决定？'},
+    en:{eyebrow:'B2 · LIFESTYLE',prompt:'Remote work offers freedom but can blur the line between work and private life. What is your view?',helper:'State your position in French, with one reason and one concrete example.',transfer:'How would you react if your company required three office days per week?'},
+    es:{eyebrow:'B2 · ESTILO DE VIDA',prompt:'El teletrabajo da libertad, pero puede borrar el límite entre trabajo y vida privada. ¿Qué opinas?',helper:'Expresa tu postura en francés con una razón y un ejemplo concreto.',transfer:'¿Qué pensarías si tu empresa exigiera tres días por semana en la oficina?'}
   }
-];
+};
+function currentScenario(){ return scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh; }
+function frenchAudioPrompt(){ return {A2:"Qu’est-ce que tu veux faire après le travail ou les cours aujourd’hui ? Explique ton programme et pourquoi.",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?"}[state.profile.level]; }
 
 function loadState() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { day: 2, streak: 2, xp: 0, map: seedMap };
-  } catch { return { day: 2, streak: 2, xp: 0, map: seedMap }; }
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { day: 1, streak: 0, xp: 0, map: seedMap, profile:{configured:false,level:'A2',language:'zh',topic:'daily'} };
+  } catch { return { day: 1, streak: 0, xp: 0, map: seedMap, profile:{configured:false,level:'A2',language:'zh',topic:'daily'} }; }
 }
 function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
@@ -47,10 +66,10 @@ function shell(content, active = 'practice') {
     <aside class="sidebar">
       <button class="brand" data-nav="practice" aria-label="EAP 首页"><span class="brand-mark">é</span><span>EAP</span></button>
       <nav>
-        <button class="nav-item ${active === 'practice' ? 'active' : ''}" data-nav="practice">${icon('home')}<span>今日练习</span></button>
-        <button class="nav-item ${active === 'map' ? 'active' : ''}" data-nav="map">${icon('map')}<span>Active Map</span><b>${state.map.length}</b></button>
+        <button class="nav-item ${active === 'practice' ? 'active' : ''}" data-nav="practice">${icon('home')}<span>${t('today')}</span></button>
+        <button class="nav-item ${active === 'map' ? 'active' : ''}" data-nav="map">${icon('map')}<span>${t('map')}</span><b>${state.map.length}</b></button>
       </nav>
-      <div class="sidebar-bottom"><div class="streak">${icon('flame',18)}<span><strong>${state.streak} 天</strong> 连续练习</span></div><div class="avatar">P</div></div>
+      <div class="sidebar-bottom"><div class="streak">${icon('flame',18)}<span><strong>${state.streak}</strong> ${t('streak')}</span></div><button class="avatar" id="profile-settings" title="${t('settings')}">${state.profile.level}</button></div>
     </aside>
     <main>${content}</main>
   </div>`;
@@ -61,29 +80,44 @@ function progress(current) {
   return `<div class="stepper">${steps.map((s, i) => `<div class="step ${i <= current ? 'on' : ''}"><span>${i < current ? icon('check',13) : i + 1}</span><em>${s}</em></div>${i < 3 ? '<i></i>' : ''}`).join('')}</div>`;
 }
 
+function renderWelcome(){
+  const welcome = {
+    zh:{kicker:'你的法语开口训练，从这里开始',title:'先认识你，再开始说。',body:'选择你最容易理解的界面语言和当前法语水平。练习会从日常生活开始，并自动调整表达难度。',language:'界面语言',level:'当前法语水平',levelHelp:'A2 从短句和熟悉场景开始；你之后可以随时修改。',topic:'第一组练习主题',daily:'日常生活',start:'开始第一次练习'},
+    en:{kicker:'YOUR FRENCH SPEAKING PRACTICE',title:'A little about you first.',body:'Choose your preferred interface language and current French level. Practice starts with everyday life and adapts the expressions to you.',language:'Interface language',level:'Current French level',levelHelp:'A2 starts with short sentences and familiar situations. You can change this later.',topic:'First practice theme',daily:'Everyday life',start:'Start my first practice'},
+    es:{kicker:'TU PRÁCTICA ORAL DE FRANCÉS',title:'Primero, cuéntanos sobre ti.',body:'Elige el idioma de la interfaz y tu nivel actual de francés. Empezaremos con situaciones cotidianas y adaptaremos la dificultad.',language:'Idioma de la interfaz',level:'Nivel actual de francés',levelHelp:'A2 empieza con frases cortas y situaciones familiares. Puedes cambiarlo después.',topic:'Primer tema',daily:'Vida cotidiana',start:'Empezar mi primera práctica'}
+  };
+  const w=welcome[state.profile.language]||welcome.zh;
+  document.querySelector('#app').innerHTML=shell(`<section class="welcome-page"><div class="welcome-copy"><p class="overline">${w.kicker}</p><h1>${w.title}</h1><p>${w.body}</p><div class="welcome-feature"><span>${icon('mic',23)}</span><div><strong>Speak first</strong><small>French voice → useful expressions → new situation</small></div></div></div><div class="setup-card"><label>${w.language}</label><div class="choice-grid language-choice">${[['zh','中文'],['en','English'],['es','Español']].map(([v,l])=>`<button data-language="${v}" class="choice ${state.profile.language===v?'selected':''}">${l}</button>`).join('')}</div><label>${w.level}</label><div class="choice-grid level-choice">${['A2','B1','B2'].map(v=>`<button data-level="${v}" class="choice ${state.profile.level===v?'selected':''}"><strong>${v}</strong><span>${v==='A2'?'Débutant +':v==='B1'?'Intermédiaire':'Avancé'}</span></button>`).join('')}</div><p class="level-help">${w.levelHelp}</p><label>${w.topic}</label><button class="topic-choice selected"><span>☕</span><div><strong>${w.daily}</strong><small>routine · food · friends · plans</small></div>${icon('check',17)}</button><button class="primary" id="start-profile">${w.start} ${icon('arrow',18)}</button></div></section>`,'practice');
+  bindNav();
+  document.querySelectorAll('[data-language]').forEach(b=>b.onclick=()=>{state.profile.language=b.dataset.language;saveState();renderWelcome();});
+  document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{state.profile.level=b.dataset.level;document.querySelectorAll('[data-level]').forEach(x=>x.classList.toggle('selected',x===b));});
+  document.querySelector('#start-profile').onclick=()=>{state.profile.configured=true;state.day=1;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
+}
+
 function renderPractice() {
-  const sc = scenarios[0];
+  if (!state.profile.configured) return renderWelcome();
+  const sc = currentScenario();
   if (session.step === 'scenario') {
     document.querySelector('#app').innerHTML = shell(`<section class="page practice-page">
-      <header class="topbar"><div><p class="overline">${sc.eyebrow}</p><h1>把想法说出来</h1></div><button class="quiet" data-nav="map">查看 Active Map ${icon('arrow',16)}</button></header>
+      <header class="topbar"><div><p class="overline">DAY ${state.day} · ${sc.eyebrow}</p><h1>${t('express')}</h1></div><button class="quiet" data-nav="map">${t('viewMap')} ${icon('arrow',16)}</button></header>
       ${progress(0)}
       <div class="practice-card">
         <div class="prompt-number">01</div>
-        <p class="scenario-label">真实场景</p>
+        <p class="scenario-label">${t('real')}</p>
         <h2>${sc.prompt}</h2>
         <p class="helper">${sc.helper}</p>
-        <div class="answer-label"><label for="answer">你的回答</label><button class="listen-prompt" id="listen-prompt">${icon('volume',16)} 听题目</button></div>
-        <div class="voice-input"><textarea id="answer" placeholder="Je pense que…" maxlength="600">${session.answer}</textarea><button class="mic-button" id="mic-answer" aria-label="用法语回答">${icon('mic',21)}<span>按下说法语</span></button></div>
+        <div class="answer-label"><label for="answer">${t('answer')}</label><button class="listen-prompt" id="listen-prompt">${icon('volume',16)} ${t('listen')}</button></div>
+        <div class="voice-input"><textarea id="answer" placeholder="Je pense que…" maxlength="600">${session.answer}</textarea><button class="mic-button" id="mic-answer" aria-label="${t('speak')}">${icon('mic',21)}<span>${t('speak')}</span></button></div>
         <div class="speech-status" id="speech-status" aria-live="polite"></div>
-        <div class="input-meta"><span id="word-count">${countWords(session.answer)} 个词</span><span>不追求完美，先自然表达</span></div>
-        <button id="analyze" class="primary" ${countWords(session.answer) < 5 ? 'disabled' : ''}>找出我的 retrieval gaps ${icon('arrow',18)}</button>
+        <div class="input-meta"><span id="word-count">${countWords(session.answer)} ${t('words')}</span><span>${t('hint')}</span></div>
+        <button id="analyze" class="primary" ${countWords(session.answer) < 5 ? 'disabled' : ''}>${t('find')} ${icon('arrow',18)}</button>
       </div>
-      <p class="privacy">你的练习仅保存在此设备</p>
+      <p class="privacy">${t('saved')}</p>
     </section>`);
     bindNav();
     const area = document.querySelector('#answer');
-    area.addEventListener('input', () => { session.answer = area.value; document.querySelector('#word-count').textContent = `${countWords(area.value)} 个词`; document.querySelector('#analyze').disabled = countWords(area.value) < 5; });
-    document.querySelector('#listen-prompt').onclick = () => speakFrench("Ton ami a reçu une offre avec un salaire plus élevé, mais aussi beaucoup plus de pression. Que choisirais-tu à sa place, et pourquoi ?");
+    area.addEventListener('input', () => { session.answer = area.value; document.querySelector('#word-count').textContent = `${countWords(area.value)} ${t('words')}`; document.querySelector('#analyze').disabled = countWords(area.value) < 5; });
+    document.querySelector('#listen-prompt').onclick = () => speakFrench(frenchAudioPrompt());
     setupSpeechInput('mic-answer', 'answer', 'speech-status', value => { session.answer = value; });
     document.querySelector('#analyze').onclick = () => { session.answer = area.value; session.step = 'gaps'; renderPractice(); };
   } else if (session.step === 'gaps') renderGaps();
@@ -95,6 +129,16 @@ function countWords(text) { return text.trim() ? text.trim().split(/\s+/).length
 
 function detectGaps() {
   const a = session.answer.toLowerCase();
+  if(state.profile.level==='A2') return [
+    {id:'avoir-envie',expression:'avoir envie de + infinitif',meaning:{zh:'想要做……',en:'to feel like doing',es:'tener ganas de'}[state.profile.language],why:{zh:'表达日常计划时非常常用。',en:'Very useful for everyday plans.',es:'Muy útil para planes cotidianos.'}[state.profile.language],example:"J’ai envie de me promener après les cours."},
+    {id:'retrouver',expression:'retrouver quelqu’un',meaning:{zh:'和某人会面',en:'to meet up with someone',es:'quedar con alguien'}[state.profile.language],why:{zh:'比单独使用 voir 更具体自然。',en:'More precise and natural than simply using voir.',es:'Más preciso y natural que usar solo voir.'}[state.profile.language],example:"Je vais retrouver une amie au café."},
+    {id:'ca-me-detend',expression:'ça me détend',meaning:{zh:'这让我放松',en:'it helps me relax',es:'me relaja'}[state.profile.language],why:{zh:'用简单句说明你喜欢某件事的原因。',en:'A simple way to explain why you enjoy something.',es:'Una forma sencilla de explicar por qué te gusta algo.'}[state.profile.language],example:"J’aime marcher parce que ça me détend."}
+  ];
+  if(state.profile.level==='B1') return [
+    {id:'avoir-habitude',expression:'avoir l’habitude de',meaning:{zh:'习惯于',en:'to be used to',es:'tener la costumbre de'}[state.profile.language],why:'A useful chunk for describing your routine.',example:"J’ai l’habitude de cuisiner le soir."},
+    {id:'de-temps-en-temps',expression:'de temps en temps',meaning:{zh:'偶尔',en:'from time to time',es:'de vez en cuando'}[state.profile.language],why:'It makes frequency sound natural.',example:"Je mange au restaurant de temps en temps."},
+    {id:'ca-depend',expression:'ça dépend de',meaning:{zh:'这取决于',en:'it depends on',es:'depende de'}[state.profile.language],why:'Useful for giving a balanced answer.',example:"Ça dépend de mon emploi du temps."}
+  ];
   return [
     { id: 'equilibre', expression: 'trouver un équilibre', meaning: '找到平衡', why: a.includes('équilibre') ? '你的表达已经接近了，用这个 chunk 会更自然。' : '适合表达薪资与生活之间的取舍。', example: "L’essentiel, c’est de trouver un équilibre." },
     { id: 'au-detriment', expression: 'au détriment de', meaning: '以牺牲……为代价', why: '让“高薪不能牺牲生活”更准确、更有层次。', example: "Je ne veux pas gagner plus au détriment de ma santé." },
@@ -105,30 +149,33 @@ function detectGaps() {
 function renderGaps() {
   const gaps = detectGaps();
   document.querySelector('#app').innerHTML = shell(`<section class="page">
-    <header class="compact-header"><button class="back" id="back">←</button><div><p class="overline">分析完成</p><h1>你差一点就说出来了</h1></div></header>
+    <header class="compact-header"><button class="back" id="back">←</button><div><p class="overline">RETRIEVAL GAPS</p><h1>${t('gapTitle')}</h1></div></header>
     ${progress(1)}
-    <div class="analysis-intro"><div class="insight-icon">${icon('spark',22)}</div><p>你的观点清楚。下面 3 个不是“语法错误”，而是能让你更精准表达原意的 <strong>retrieval gaps</strong>。</p></div>
+    <div class="analysis-intro"><div class="insight-icon">${icon('spark',22)}</div><p>${t('analysis')}</p></div>
     <div class="gap-grid">${gaps.map((g, i) => `<article class="gap-card"><div class="gap-top"><span>0${i+1}</span><button class="sound" aria-label="播放发音">${icon('volume',18)}</button></div><h2>${g.expression}</h2><p class="meaning">${g.meaning}</p><p class="why">${g.why}</p><div class="example">${g.example}</div></article>`).join('')}</div>
-    <div class="action-row"><span>本轮只激活 3 个高价值表达</span><button class="primary compact" id="activate">开始激活 ${icon('arrow',18)}</button></div>
+    <div class="action-row"><span>${t('only')}</span><button class="primary compact" id="activate">${t('activate')} ${icon('arrow',18)}</button></div>
   </section>`);
   bindNav(); document.querySelectorAll('.sound').forEach((b,i)=>b.onclick=()=>speakFrench(`${gaps[i].expression}. ${gaps[i].example}`)); document.querySelector('#back').onclick = () => { session.step='scenario'; renderPractice(); }; document.querySelector('#activate').onclick=()=>{session.selectedGaps=gaps;session.step='activate';renderPractice();};
 }
 
 function renderActivate() {
   const gaps=session.selectedGaps.length?session.selectedGaps:detectGaps();
-  document.querySelector('#app').innerHTML=shell(`<section class="page"><header class="compact-header"><div><p class="overline">快速激活</p><h1>先把表达放进嘴里</h1></div><span class="timer">${icon('clock',17)} 约 2 分钟</span></header>${progress(2)}
+  document.querySelector('#app').innerHTML=shell(`<section class="page"><header class="compact-header"><div><p class="overline">${t('quick')}</p><h1>${t('mouth')}</h1></div><span class="timer">${icon('clock',17)} 2 min</span></header>${progress(2)}
   <div class="activation-list">${gaps.map((g,i)=>`<article class="activation-row"><span class="big-num">0${i+1}</span><div><h2>${g.expression}</h2><p>${g.example}</p><button class="inline-sound" data-speak="${i}">${icon('volume',15)} 听发音</button></div><div class="micro-task"><span>补全一句</span><p>${activationPrompt(i,g.expression)}</p></div><label class="check-label"><input type="checkbox" class="activation-check"><span>${icon('check',16)}</span></label></article>`).join('')}</div>
-  <div class="action-row"><span id="activation-status">完成 0 / 3</span><button class="primary compact" id="transfer" disabled>进入新情境 ${icon('arrow',18)}</button></div></section>`);
+  <div class="action-row"><span id="activation-status">${t('complete')} 0 / 3</span><button class="primary compact" id="transfer" disabled>${t('next')} ${icon('arrow',18)}</button></div></section>`);
   bindNav(); document.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>{const g=gaps[Number(b.dataset.speak)];speakFrench(`${g.expression}. ${g.example}`)}); const checks=[...document.querySelectorAll('.activation-check')]; checks.forEach(c=>c.onchange=()=>{const n=checks.filter(x=>x.checked).length;document.querySelector('#activation-status').textContent=`完成 ${n} / 3`;document.querySelector('#transfer').disabled=n<3;}); document.querySelector('#transfer').onclick=()=>{session.step='transfer';renderPractice();};
 }
-function activationPrompt(i,e){return ["Pour moi, l’essentiel, c’est de ______ entre le travail et la vie privée.","Je ne veux pas réussir professionnellement ______ de ma santé.","Avant de choisir, il faut ______ ses priorités."][i] || e;}
+function activationPrompt(i,e){
+  const prompts={A2:["Après les cours, j’______ me promener.","Samedi, je vais ______ une amie.","J’aime cette activité parce que ______."],B1:["J’______ cuisiner le soir.","Je mange dehors ______.","Mon choix, ______ mon emploi du temps."],B2:["Pour moi, l’essentiel, c’est de ______ entre le travail et la vie privée.","Je ne veux pas réussir professionnellement ______ de ma santé.","Avant de choisir, il faut ______ ses priorités."]};
+  return prompts[state.profile.level][i] || e;
+}
 
 function renderTransfer() {
-  const sc=scenarios[0];
+  const sc=currentScenario();
   if(session.transferDone){ return renderComplete(); }
-  document.querySelector('#app').innerHTML=shell(`<section class="page practice-page"><header class="topbar"><div><p class="overline">TRANSFER TEST</p><h1>换个情境，再调用一次</h1></div><span class="subtle-tag">不提示目标词</span></header>${progress(3)}
-  <div class="practice-card transfer-card"><div class="prompt-number">02</div><p class="scenario-label">新情境</p><h2>${sc.transfer}</h2><p class="helper">不必刻意使用所有新表达。像真实对话一样回答。</p><div class="answer-label"><label for="transfer-answer">你的回答</label><button class="listen-prompt" id="listen-transfer">${icon('volume',16)} 听题目</button></div><div class="voice-input"><textarea id="transfer-answer" placeholder="Personnellement, je choisirais…" maxlength="600">${session.transferAnswer}</textarea><button class="mic-button" id="mic-transfer" aria-label="用法语回答">${icon('mic',21)}<span>按下说法语</span></button></div><div class="speech-status" id="speech-status" aria-live="polite"></div><div class="input-meta"><span id="word-count">${countWords(session.transferAnswer)} 个词</span><span>系统会记录自然调用</span></div><button class="primary" id="finish" ${countWords(session.transferAnswer)<5?'disabled':''}>完成今日练习 ${icon('check',18)}</button></div></section>`);
-  bindNav(); const area=document.querySelector('#transfer-answer');area.oninput=()=>{session.transferAnswer=area.value;document.querySelector('#word-count').textContent=`${countWords(area.value)} 个词`;document.querySelector('#finish').disabled=countWords(area.value)<5;}; document.querySelector('#listen-transfer').onclick=()=>speakFrench("Tu dois choisir entre un petit appartement au centre-ville et une maison plus grande en banlieue. Lequel choisirais-tu, et pourquoi ?"); setupSpeechInput('mic-transfer','transfer-answer','speech-status',value=>{session.transferAnswer=value;}); document.querySelector('#finish').onclick=()=>completeSession(area.value);
+  document.querySelector('#app').innerHTML=shell(`<section class="page practice-page"><header class="topbar"><div><p class="overline">TRANSFER TEST</p><h1>${t('transfer')}</h1></div><span class="subtle-tag">${t('noHint')}</span></header>${progress(3)}
+  <div class="practice-card transfer-card"><div class="prompt-number">02</div><p class="scenario-label">TRANSFER</p><h2>${sc.transfer}</h2><p class="helper">${t('transferHint')}</p><div class="answer-label"><label for="transfer-answer">${t('answer')}</label><button class="listen-prompt" id="listen-transfer">${icon('volume',16)} ${t('listen')}</button></div><div class="voice-input"><textarea id="transfer-answer" placeholder="Personnellement, je…" maxlength="600">${session.transferAnswer}</textarea><button class="mic-button" id="mic-transfer" aria-label="${t('speak')}">${icon('mic',21)}<span>${t('speak')}</span></button></div><div class="speech-status" id="speech-status" aria-live="polite"></div><div class="input-meta"><span id="word-count">${countWords(session.transferAnswer)} ${t('words')}</span><span>spaced retrieval</span></div><button class="primary" id="finish" ${countWords(session.transferAnswer)<5?'disabled':''}>${t('finish')} ${icon('check',18)}</button></div></section>`);
+  bindNav(); const area=document.querySelector('#transfer-answer');area.oninput=()=>{session.transferAnswer=area.value;document.querySelector('#word-count').textContent=`${countWords(area.value)} ${t('words')}`;document.querySelector('#finish').disabled=countWords(area.value)<5;}; document.querySelector('#listen-transfer').onclick=()=>speakFrench({A2:"Ton ami est libre samedi. Qu’est-ce que vous pouvez faire ensemble, et pourquoi ?",B1:"Un ami visite ta ville pour une journée. Où allez-vous manger, et pourquoi ?",B2:"Ton entreprise demande trois jours au bureau par semaine. Que penses-tu de cette décision ?"}[state.profile.level]); setupSpeechInput('mic-transfer','transfer-answer','speech-status',value=>{session.transferAnswer=value;}); document.querySelector('#finish').onclick=()=>completeSession(area.value);
 }
 
 function speakFrench(text) {
@@ -177,5 +224,5 @@ function renderMap(){
   <div class="map-note"><span>${icon('spark',20)}</span><p><strong>状态如何变化？</strong> 在不同情境中自然调用后，表达会从 Passive → Emerging → Active → Automatic。系统只在需要时安排下一次触发。</p></div></section>`,'map');bindNav();
 }
 
-function bindNav(){document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>b.dataset.nav==='map'?renderMap():renderPractice());}
+function bindNav(){document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>b.dataset.nav==='map'?renderMap():renderPractice());const p=document.querySelector('#profile-settings');if(p)p.onclick=()=>{state.profile.configured=false;saveState();renderWelcome();};}
 renderPractice();
