@@ -53,7 +53,15 @@ const scenarios = {
     es:{eyebrow:'C2 · CULTURA Y ABSTRACCIÓN',prompt:'¿El lenguaje solo describe la realidad o también moldea lo que podemos imaginar?',helper:'Desarrolla un argumento abstracto en francés con analogías y contraejemplos.',transfer:'Reformula la misma idea para una entrevista de radio generalista.'}
   }
 };
-function currentScenario(){ return scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh; }
+const frenchVisibleQuestions={
+  A1:{prompt:"Bonjour ! Comment tu t’appelles et où est-ce que tu habites ?",transfer:"Tu préfères le café ou le thé ?"},
+  A2:{prompt:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",transfer:"Tu es libre ce week-end ? Qu’est-ce que tu veux faire ?"},
+  B1:{prompt:"Tu préfères cuisiner chez toi ou manger au restaurant ? Pourquoi ?",transfer:"Un ami visite ta ville. Où est-ce que vous allez manger ?"},
+  B2:{prompt:"Le télétravail améliore-t-il vraiment la qualité de vie ?",transfer:"Que penses-tu d’une semaine avec trois jours obligatoires au bureau ?"},
+  C1:{prompt:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ?",transfer:"Comment contesterais-tu cette idée dans une réunion formelle ?"},
+  C2:{prompt:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il ce que nous pouvons imaginer ?",transfer:"Comment reformulerais-tu cette idée pour une émission de radio grand public ?"}
+};
+function currentScenario(){ const base=scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh;return {...base,...frenchVisibleQuestions[state.profile.level]}; }
 function frenchAudioPrompt(){ return {A1:"Bonjour ! Comment tu t’appelles ? Où est-ce que tu habites ?",A2:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?",C1:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ? Quelles sont les limites de cette idée ?",C2:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il aussi ce que nous sommes capables d’imaginer ?"}[state.profile.level]; }
 
 function loadState() {
@@ -108,7 +116,7 @@ function renderWelcome(){
   document.querySelector('#app').innerHTML=shell(`<section class="welcome-page"><div class="welcome-copy"><p class="overline">${w.kicker}</p><h1>${w.title}</h1><p>${w.body}</p><div class="welcome-feature"><span>${icon('spark',23)}</span><div><strong>1-minute check</strong><small>known words → level estimate → adaptive practice</small></div></div></div><div class="setup-card"><label>${w.language}</label><div class="choice-grid language-choice">${[['zh','中文'],['en','English'],['es','Español']].map(([v,l])=>`<button data-language="${v}" class="choice ${state.profile.language===v?'selected':''}">${l}</button>`).join('')}</div><label>Voix française · French voice</label><div class="voice-choice">${[['claire','Claire','♀'],['julien','Julien','♂'],['amelie','Amélie','♀'],['louis','Louis','♂']].map(([v,n,g])=>`<button data-voice="${v}" class="voice-option ${state.profile.voice===v?'selected':''}"><span>${g}</span><strong>${n}</strong><small>Écouter</small></button>`).join('')}</div><label>${w.level}</label><div class="assessment-scale"><div><strong>A2</strong><span>daily basics</span></div><i>${icon('arrow',15)}</i><div><strong>B1</strong><span>conversation</span></div><i>${icon('arrow',15)}</i><div><strong>B2</strong><span>deep ideas</span></div></div><p class="level-help">${w.levelHelp}</p><button class="primary" id="start-profile">${w.start} ${icon('arrow',18)}</button></div></section>`,'practice');
   bindNav();
   document.querySelectorAll('[data-language]').forEach(b=>b.onclick=()=>{state.profile.language=b.dataset.language;saveState();renderWelcome();});
-  document.querySelectorAll('[data-voice]').forEach(b=>b.onclick=()=>{state.profile.voice=b.dataset.voice;saveState();document.querySelectorAll('[data-voice]').forEach(x=>x.classList.toggle('selected',x===b));speakFrench("Bonjour, je m’appelle "+b.querySelector('strong').textContent+". On commence ?");});
+  document.querySelectorAll('[data-voice]').forEach(b=>b.onclick=()=>previewVoice(b));
   document.querySelector('#start-profile').onclick=()=>renderVocabularyTest();
 }
 
@@ -274,7 +282,7 @@ function renderTransfer() {
   bindNav(); const area=document.querySelector('#transfer-answer');area.oninput=()=>{session.transferAnswer=area.value;document.querySelector('#word-count').textContent=`${countWords(area.value)} ${t('words')}`;document.querySelector('#finish').disabled=countWords(area.value)<3;}; document.querySelector('#listen-transfer').onclick=()=>speakFrench({A1:"Tu préfères le café ou le thé ?",A2:"Ton ami est libre samedi. Qu’est-ce que vous pouvez faire ensemble ?",B1:"Un ami visite ta ville. Où allez-vous manger, et pourquoi ?",B2:"Ton entreprise demande trois jours au bureau. Qu’en penses-tu ?",C1:"Comment contesterais-tu cette idée dans une réunion formelle ?",C2:"Comment reformulerais-tu cette idée pour une émission de radio grand public ?"}[state.profile.level]); setupSpeechInput('mic-transfer','transfer-answer','speech-status',value=>{session.transferAnswer=value;}); document.querySelector('#finish').onclick=()=>completeSession(area.value);
 }
 
-function speakFrench(text) {
+function speakFrench(text, onEnd) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
@@ -282,7 +290,15 @@ function speakFrench(text) {
   const presets={claire:{names:/audrey|amélie|amelie|céline|celine|female|femme/i,rate:.92,pitch:1.04,index:0},julien:{names:/thomas|henri|daniel|male|homme/i,rate:.9,pitch:.9,index:1},amelie:{names:/marie|aurelie|aurélie|lea|léa|female|femme/i,rate:.86,pitch:1.1,index:2},louis:{names:/louis|paul|remy|rémy|male|homme/i,rate:.96,pitch:.86,index:3}};
   const preset=presets[state.profile.voice]||presets.claire;const voices=window.speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith('fr'));const selected=voices.find(v=>preset.names.test(v.name))||voices[preset.index%Math.max(voices.length,1)];
   utterance.rate=preset.rate;utterance.pitch=preset.pitch;if(selected)utterance.voice=selected;
-  window.speechSynthesis.speak(utterance);
+  utterance.onend=()=>onEnd?.();utterance.onerror=()=>onEnd?.();window.speechSynthesis.speak(utterance);return utterance;
+}
+
+function previewVoice(button){
+  const same=state.profile.voice===button.dataset.voice;
+  if(same&&button.classList.contains('playing')){window.speechSynthesis.cancel();button.classList.remove('playing');button.querySelector('small').textContent='Écouter';return;}
+  window.speechSynthesis.cancel();document.querySelectorAll('[data-voice]').forEach(x=>{x.classList.remove('selected','playing');x.querySelector('small').textContent='Écouter';});
+  state.profile.voice=button.dataset.voice;saveState();button.classList.add('selected','playing');button.querySelector('small').textContent='Arrêter';
+  speakFrench("Bonjour, je m’appelle "+button.querySelector('strong').textContent+". On commence ?",()=>{button.classList.remove('playing');const label=button.querySelector('small');if(label)label.textContent='Écouter';});
 }
 
 function setupSpeechInput(buttonId, textareaId, statusId, onValue) {
