@@ -10,14 +10,15 @@ const seedMap = [
 const state = loadState();
 state.profile ||= { configured: false, level: 'A2', language: 'zh', topic: 'daily', voice: 'claire' };
 state.profile.voice ||= 'claire';
+state.round ??= 0;
 let session = { step: 'scenario', answer: '', selectedGaps: [], transferAnswer: '', transferDone: false };
 let placement = { step: 0, answers: [], draft: '' };
 let vocabTest = { selected: new Set(), startedAt: 0, timer: null };
 
 const copy = {
-  zh: { today:'今日练习', map:'Active Map', streak:'连续练习', viewMap:'查看 Active Map', express:'把想法说出来', real:'日常场景', answer:'你的回答', speak:'按下说法语', listen:'听题目', hint:'不追求完美，先自然表达', find:'找出我的 retrieval gaps', saved:'你的练习仅保存在此设备', words:'个词', gapTitle:'你差一点就说出来了', analysis:'你的意思很清楚。下面 3 个不是“错误”，而是能帮你在日常对话中更自然表达的 retrieval gaps。', activate:'开始激活', only:'本轮只激活 3 个高价值表达', quick:'快速激活', mouth:'先把表达放进嘴里', complete:'完成', next:'进入新情境', transfer:'换个情境，再调用一次', noHint:'不提示目标词', transferHint:'不必刻意使用所有新表达。像真实对话一样回答。', finish:'完成今日练习', settings:'学习设置' },
-  en: { today:'Today’s practice', map:'Active Map', streak:'day streak', viewMap:'View Active Map', express:'Say what you mean', real:'Everyday situation', answer:'Your answer', speak:'Speak in French', listen:'Listen', hint:'Don’t aim for perfect. Speak naturally first.', find:'Find my retrieval gaps', saved:'Your practice stays on this device', words:'words', gapTitle:'You almost had the words', analysis:'Your meaning is clear. These are not simply “mistakes” — they are three useful retrieval gaps for more natural everyday French.', activate:'Activate expressions', only:'Only 3 high-value expressions this round', quick:'QUICK ACTIVATION', mouth:'Put the expressions into your own speech', complete:'Completed', next:'Try a new situation', transfer:'New situation, retrieve again', noHint:'No target-word hints', transferHint:'You do not need to force every expression. Answer as in a real conversation.', finish:'Finish today’s practice', settings:'Learning settings' },
-  es: { today:'Práctica de hoy', map:'Active Map', streak:'días seguidos', viewMap:'Ver Active Map', express:'Expresa lo que piensas', real:'Situación cotidiana', answer:'Tu respuesta', speak:'Hablar en francés', listen:'Escuchar', hint:'No busques la perfección. Habla con naturalidad.', find:'Encontrar mis retrieval gaps', saved:'Tu práctica se guarda solo en este dispositivo', words:'palabras', gapTitle:'Casi encontraste las palabras', analysis:'Tu idea está clara. No son simples “errores”, sino tres retrieval gaps útiles para hablar francés cotidiano con más naturalidad.', activate:'Activar expresiones', only:'Solo 3 expresiones útiles en esta ronda', quick:'ACTIVACIÓN RÁPIDA', mouth:'Lleva las expresiones a tu habla', complete:'Completado', next:'Probar otra situación', transfer:'Otro contexto, vuelve a recordar', noHint:'Sin pistas', transferHint:'No hace falta forzar todas las expresiones. Responde como en una conversación real.', finish:'Terminar la práctica', settings:'Ajustes de aprendizaje' }
+  zh: { today:'今日练习', map:'Active Map', streak:'连续练习', viewMap:'查看 Active Map', express:'把想法说出来', real:'日常场景', answer:'你的回答', speak:'按下说法语', listen:'听题目', hint:'不追求完美，先自然表达', find:'找出我的 retrieval gaps', saved:'你的练习仅保存在此设备', words:'个词', gapTitle:'你差一点就说出来了', analysis:'你的意思很清楚。下面 3 个不是“错误”，而是能帮你在日常对话中更自然表达的 retrieval gaps。', activate:'开始激活', only:'本轮只激活 3 个高价值表达', quick:'快速激活', mouth:'先把表达放进嘴里', complete:'完成', next:'进入新情境', transfer:'换个情境，再调用一次', noHint:'不提示目标词', transferHint:'不必刻意使用所有新表达。像真实对话一样回答。', finish:'完成本轮练习', nextTopic:'换个主题，再练一次', settings:'学习设置' },
+  en: { today:'Today’s practice', map:'Active Map', streak:'day streak', viewMap:'View Active Map', express:'Say what you mean', real:'Everyday situation', answer:'Your answer', speak:'Speak in French', listen:'Listen', hint:'Don’t aim for perfect. Speak naturally first.', find:'Find my retrieval gaps', saved:'Your practice stays on this device', words:'words', gapTitle:'You almost had the words', analysis:'Your meaning is clear. These are not simply “mistakes” — they are three useful retrieval gaps for more natural everyday French.', activate:'Activate expressions', only:'Only 3 high-value expressions this round', quick:'QUICK ACTIVATION', mouth:'Put the expressions into your own speech', complete:'Completed', next:'Try a new situation', transfer:'New situation, retrieve again', noHint:'No target-word hints', transferHint:'You do not need to force every expression. Answer as in a real conversation.', finish:'Finish this round', nextTopic:'Practise again with a new topic', settings:'Learning settings' },
+  es: { today:'Práctica de hoy', map:'Active Map', streak:'días seguidos', viewMap:'Ver Active Map', express:'Expresa lo que piensas', real:'Situación cotidiana', answer:'Tu respuesta', speak:'Hablar en francés', listen:'Escuchar', hint:'No busques la perfección. Habla con naturalidad.', find:'Encontrar mis retrieval gaps', saved:'Tu práctica se guarda solo en este dispositivo', words:'palabras', gapTitle:'Casi encontraste las palabras', analysis:'Tu idea está clara. No son simples “errores”, sino tres retrieval gaps útiles para hablar francés cotidiano con más naturalidad.', activate:'Activar expresiones', only:'Solo 3 expresiones útiles en esta ronda', quick:'ACTIVACIÓN RÁPIDA', mouth:'Lleva las expresiones a tu habla', complete:'Completado', next:'Probar otra situación', transfer:'Otro contexto, vuelve a recordar', noHint:'Sin pistas', transferHint:'No hace falta forzar todas las expresiones. Responde como en una conversación real.', finish:'Terminar esta ronda', nextTopic:'Practicar otro tema', settings:'Ajustes de aprendizaje' }
 };
 const t = key => (copy[state.profile.language] || copy.zh)[key] || copy.zh[key] || key;
 
@@ -61,8 +62,40 @@ const frenchVisibleQuestions={
   C1:{prompt:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ?",transfer:"Comment contesterais-tu cette idée dans une réunion formelle ?"},
   C2:{prompt:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il ce que nous pouvons imaginer ?",transfer:"Comment reformulerais-tu cette idée pour une émission de radio grand public ?"}
 };
-function currentScenario(){ const base=scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh;return {...base,...frenchVisibleQuestions[state.profile.level]}; }
-function frenchAudioPrompt(){ return {A1:"Bonjour ! Comment tu t’appelles ? Où est-ce que tu habites ?",A2:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?",C1:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ? Quelles sont les limites de cette idée ?",C2:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il aussi ce que nous sommes capables d’imaginer ?"}[state.profile.level]; }
+const dailyVariants={
+  A1:[
+    {theme:'SE PRÉSENTER',prompt:"Bonjour ! Comment tu t’appelles et où est-ce que tu habites ?",transfer:"Tu préfères le café ou le thé ?"},
+    {theme:'AU CAFÉ',prompt:"Bonjour ! Qu’est-ce que tu veux boire ?",transfer:"Tu veux manger quelque chose aussi ?"},
+    {theme:'LA FAMILLE',prompt:"Tu as des frères ou des sœurs ?",transfer:"Avec qui est-ce que tu habites ?"}
+  ],
+  A2:[
+    {theme:'LES PROJETS',prompt:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",transfer:"Tu es libre ce week-end ?"},
+    {theme:'LES COURSES',prompt:"Qu’est-ce que tu achètes souvent au supermarché ?",transfer:"Tu préfères le marché ou le supermarché ?"},
+    {theme:'LES TRANSPORTS',prompt:"Comment est-ce que tu vas au travail ou à l’école ?",transfer:"Quel moyen de transport préfères-tu ?"}
+  ],
+  B1:[
+    {theme:'MANGER',prompt:"Tu préfères cuisiner chez toi ou manger au restaurant ? Pourquoi ?",transfer:"Un ami visite ta ville. Où allez-vous manger ?"},
+    {theme:'VOYAGER',prompt:"Quel voyage t’a laissé un bon souvenir ?",transfer:"Tu préfères préparer un voyage ou improviser ?"},
+    {theme:'LES HABITUDES',prompt:"Quelle habitude aimerais-tu changer dans ta vie quotidienne ?",transfer:"Comment pourrais-tu commencer cette semaine ?"}
+  ],
+  B2:[
+    {theme:'LE TÉLÉTRAVAIL',prompt:"Le télétravail améliore-t-il vraiment la qualité de vie ?",transfer:"Que penses-tu de trois jours obligatoires au bureau ?"},
+    {theme:'LA VILLE',prompt:"Les centres-villes devraient-ils limiter fortement la voiture ?",transfer:"Quelles alternatives seraient réalistes ?"},
+    {theme:'L’INFORMATION',prompt:"Est-il devenu plus difficile de distinguer une information fiable ?",transfer:"Qui devrait être responsable de l’éducation aux médias ?"}
+  ],
+  C1:[
+    {theme:'LA RÉUSSITE',prompt:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ?",transfer:"Comment contesterais-tu cette idée dans une réunion formelle ?"},
+    {theme:'LE PROGRÈS',prompt:"Toute innovation socialement utile est-elle nécessairement souhaitable ?",transfer:"Comment présenterais-tu une position nuancée à un décideur ?"},
+    {theme:'LE TRAVAIL',prompt:"La quête de sens au travail relève-t-elle d’un privilège ou d’un besoin légitime ?",transfer:"Comment adapterais-tu ton argument à un public sceptique ?"}
+  ],
+  C2:[
+    {theme:'LE LANGAGE',prompt:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il ce que nous pouvons imaginer ?",transfer:"Reformule cette idée pour une émission de radio grand public."},
+    {theme:'LA MÉMOIRE',prompt:"Une société peut-elle construire un avenir commun sans récit partagé de son passé ?",transfer:"Exprime la même thèse sous la forme d’une courte chronique."},
+    {theme:'LA LIBERTÉ',prompt:"La multiplication des choix accroît-elle toujours notre liberté ?",transfer:"Défends brièvement la position inverse de la tienne."}
+  ]
+};
+function currentScenario(){ const base=scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh;const variants=dailyVariants[state.profile.level]||dailyVariants.A2;const variant=variants[state.round%variants.length];return {...base,...variant,eyebrow:`${state.profile.level} · ${variant.theme}`}; }
+function frenchAudioPrompt(){ return currentScenario().prompt; }
 
 function loadState() {
   try {
@@ -287,7 +320,7 @@ function speakFrench(text, onEnd) {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'fr-FR';
-  const presets={claire:{names:/audrey|amélie|amelie|céline|celine|female|femme/i,rate:.92,pitch:1.04,index:0},julien:{names:/thomas|henri|daniel|male|homme/i,rate:.9,pitch:.9,index:1},amelie:{names:/marie|aurelie|aurélie|lea|léa|female|femme/i,rate:.86,pitch:1.1,index:2},louis:{names:/louis|paul|remy|rémy|male|homme/i,rate:.96,pitch:.86,index:3}};
+  const presets={claire:{names:/audrey|céline|celine|virginie|female|femme/i,rate:.92,pitch:1.04,index:0},julien:{names:/thomas|henri|daniel|nicolas|male|homme/i,rate:.9,pitch:.9,index:1},amelie:{names:/amélie|amelie|marie|aurelie|aurélie|lea|léa|hortense|female|femme/i,rate:.88,pitch:1.08,index:3},louis:{names:/louis|paul|remy|rémy|jacques|male|homme/i,rate:.94,pitch:.88,index:2}};
   const preset=presets[state.profile.voice]||presets.claire;const voices=window.speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith('fr'));const selected=voices.find(v=>preset.names.test(v.name))||voices[preset.index%Math.max(voices.length,1)];
   utterance.rate=preset.rate;utterance.pitch=preset.pitch;if(selected)utterance.voice=selected;
   utterance.onend=()=>onEnd?.();utterance.onerror=()=>onEnd?.();window.speechSynthesis.speak(utterance);return utterance;
@@ -319,14 +352,15 @@ function setupSpeechInput(buttonId, textareaId, statusId, onValue) {
 
 function completeSession(answer){
   session.transferAnswer=answer; const gaps=session.selectedGaps.length?session.selectedGaps:detectGaps();
-  gaps.forEach(g=>{if(!state.map.some(x=>x.id===g.id))state.map.push({...g,status:'Emerging',reviews:1,due:'2 天后'});});
+  gaps.forEach(g=>{const existing=state.map.find(x=>x.id===g.id);if(!existing)state.map.push({...g,status:'Emerging',reviews:1,due:'2 天后'});else{existing.reviews=(existing.reviews||0)+1;existing.status=existing.reviews>=4?'Automatic':existing.reviews>=3?'Active':'Emerging';existing.due=existing.status==='Automatic'?'7 天后':'2 天后';}});
   state.streak=Math.max(state.streak,3);state.xp+=1;saveState();session.transferDone=true;renderComplete();
 }
 
 function renderComplete(){
-  const hit=/équilibre|détriment|tenir compte/i.test(session.transferAnswer);
-  document.querySelector('#app').innerHTML=shell(`<section class="page complete-page">${progress(3)}<div class="complete-mark">${icon('check',34)}</div><p class="overline">DAY 2 完成</p><h1>今天，你把知识变成了表达。</h1><p class="complete-copy">${hit?'你在新情境中自然调用了刚激活的表达。':'没有刻意套用也没关系。表达已经进入 Emerging，系统会在 2 天后再次触发。'}</p><div class="result-strip"><div><strong>3</strong><span>已激活</span></div><div><strong>${hit?'1':'0'}</strong><span>自然迁移</span></div><div><strong>2 天后</strong><span>下次触发</span></div></div><div class="complete-actions"><button class="secondary" data-nav="map">查看 Active Map</button><button class="primary compact" id="restart">再练一次 ${icon('arrow',18)}</button></div></section>`);
-  bindNav();document.querySelector('#restart').onclick=()=>{session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
+  const learned=session.selectedGaps.length?session.selectedGaps:detectGaps();const hit=learned.some(g=>session.transferAnswer.toLowerCase().includes(g.expression.split(' ')[0].replace(/[’']/g,"'")));
+  const completedRound=(state.round%3)+1;
+  document.querySelector('#app').innerHTML=shell(`<section class="page complete-page">${progress(3)}<div class="complete-mark">${icon('check',34)}</div><p class="overline">DAY ${state.day} · ROUND ${completedRound}</p><h1>今天，你把知识变成了表达。</h1><p class="complete-copy">${hit?'你在新情境中自然调用了刚激活的表达。':'表达已经进入 Active Map。下个主题会再次给你调用它们的机会。'}</p><div class="result-strip"><div><strong>3</strong><span>已激活</span></div><div><strong>${completedRound}</strong><span>今日已练主题</span></div><div><strong>${Math.max(0,3-completedRound)}</strong><span>建议继续主题</span></div></div><div class="complete-actions"><button class="secondary" data-nav="map">查看 Active Map</button><button class="primary compact" id="restart">${t('nextTopic')} ${icon('arrow',18)}</button></div></section>`);
+  bindNav();document.querySelector('#restart').onclick=()=>{state.round++;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
 }
 
 function renderMap(){
