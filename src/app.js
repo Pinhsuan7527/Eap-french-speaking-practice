@@ -22,6 +22,11 @@ const copy = {
 const t = key => (copy[state.profile.language] || copy.zh)[key] || copy.zh[key] || key;
 
 const scenarios = {
+  A1: {
+    zh:{eyebrow:'A1 · 第一次对话',prompt:'Bonjour！你叫什么名字？你住在哪里？',helper:'用最简单的法语回答。一个词或一句短句也可以。',transfer:'朋友问你喜欢咖啡还是茶。你怎么回答？'},
+    en:{eyebrow:'A1 · FIRST DIALOGUE',prompt:'Bonjour! What is your name, and where do you live?',helper:'Answer with very simple French. One word or one short sentence is fine.',transfer:'A friend asks whether you like coffee or tea. What do you say?'},
+    es:{eyebrow:'A1 · PRIMER DIÁLOGO',prompt:'Bonjour. ¿Cómo te llamas y dónde vives?',helper:'Responde con francés muy sencillo. Una palabra o frase corta está bien.',transfer:'Un amigo pregunta si te gusta el café o el té. ¿Qué respondes?'}
+  },
   A2: {
     zh:{eyebrow:'A2 · 简单对话',prompt:'Bonjour！你今天怎么样？今天准备做什么？',helper:'像和朋友聊天一样，用 2–4 句简单法语回答。',transfer:'朋友问你周末有没有空。你会怎么回答？'},
     en:{eyebrow:'A2 · SIMPLE DIALOGUE',prompt:'Bonjour! How are you today, and what are you going to do?',helper:'Answer like you are chatting with a friend, using 2–4 simple French sentences.',transfer:'A friend asks if you are free this weekend. How do you answer?'},
@@ -36,10 +41,20 @@ const scenarios = {
     zh:{eyebrow:'B2 · 生活方式',prompt:'远程办公让生活更自由，也可能让工作和私人生活的界限消失。你怎么看？',helper:'用法语表达立场、一个理由和一个具体例子。',transfer:'如果公司要求每周回办公室三天，你会如何评价这个决定？'},
     en:{eyebrow:'B2 · LIFESTYLE',prompt:'Remote work offers freedom but can blur the line between work and private life. What is your view?',helper:'State your position in French, with one reason and one concrete example.',transfer:'How would you react if your company required three office days per week?'},
     es:{eyebrow:'B2 · ESTILO DE VIDA',prompt:'El teletrabajo da libertad, pero puede borrar el límite entre trabajo y vida privada. ¿Qué opinas?',helper:'Expresa tu postura en francés con una razón y un ejemplo concreto.',transfer:'¿Qué pensarías si tu empresa exigiera tres días por semana en la oficina?'}
+  },
+  C1: {
+    zh:{eyebrow:'C1 · 观点与语域',prompt:'“永远保持忙碌”为什么在现代社会常被等同于成功？这种观念有什么局限？',helper:'请用法语组织细腻观点，并注意连接和语域。',transfer:'如果你要在正式会议中反驳这种观点，你会怎么表达？'},
+    en:{eyebrow:'C1 · NUANCE & REGISTER',prompt:'Why is constant busyness often equated with success, and what are the limits of this idea?',helper:'Build a nuanced argument in French and pay attention to register.',transfer:'How would you challenge this view in a formal meeting?'},
+    es:{eyebrow:'C1 · MATIZ Y REGISTRO',prompt:'¿Por qué estar siempre ocupado se asocia con el éxito y qué límites tiene esta idea?',helper:'Construye un argumento matizado en francés y cuida el registro.',transfer:'¿Cómo cuestionarías esta idea en una reunión formal?'}
+  },
+  C2: {
+    zh:{eyebrow:'C2 · 文化与抽象表达',prompt:'语言是在描述现实，还是也在塑造我们能够想象的现实？',helper:'请用法语展开抽象论证，可使用类比、限定和反例。',transfer:'请把同一观点改写成适合大众电台访谈的表达。'},
+    en:{eyebrow:'C2 · CULTURE & ABSTRACTION',prompt:'Does language merely describe reality, or does it shape what we are able to imagine?',helper:'Develop an abstract argument in French using analogy, qualification, or counterexample.',transfer:'Reframe the same idea for a general-audience radio interview.'},
+    es:{eyebrow:'C2 · CULTURA Y ABSTRACCIÓN',prompt:'¿El lenguaje solo describe la realidad o también moldea lo que podemos imaginar?',helper:'Desarrolla un argumento abstracto en francés con analogías y contraejemplos.',transfer:'Reformula la misma idea para una entrevista de radio generalista.'}
   }
 };
 function currentScenario(){ return scenarios[state.profile.level]?.[state.profile.language] || scenarios.A2.zh; }
-function frenchAudioPrompt(){ return {A2:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?"}[state.profile.level]; }
+function frenchAudioPrompt(){ return {A1:"Bonjour ! Comment tu t’appelles ? Où est-ce que tu habites ?",A2:"Bonjour ! Comment ça va aujourd’hui ? Qu’est-ce que tu vas faire ?",B1:"Tu préfères cuisiner chez toi ou manger au restaurant ? Explique tes habitudes et tes raisons.",B2:"Le télétravail donne de la liberté, mais il peut effacer la frontière entre vie professionnelle et vie privée. Qu’en penses-tu ?",C1:"Pourquoi le fait d’être constamment occupé est-il souvent assimilé à la réussite ? Quelles sont les limites de cette idée ?",C2:"Le langage se contente-t-il de décrire le réel, ou façonne-t-il aussi ce que nous sommes capables d’imaginer ?"}[state.profile.level]; }
 
 function loadState() {
   try {
@@ -101,7 +116,9 @@ const vocabularyBank=[
   ['bonjour','A1'],['maison','A1'],['manger','A1'],['famille','A1'],['aujourd’hui','A1'],['petit','A1'],
   ['souvent','A2'],['choisir','A2'],['rendez-vous','A2'],['oublier','A2'],['avoir besoin de','A2'],['quartier','A2'],
   ['pourtant','B1'],['améliorer','B1'],['réussir à','B1'],['habitude','B1'],['conseiller','B1'],['se rendre compte','B1'],
-  ['enjeu','B2'],['nuancer','B2'],['bouleverser','B2'],['épanouissement','B2'],['néanmoins','B2'],['incontournable','B2']
+  ['enjeu','B2'],['nuancer','B2'],['bouleverser','B2'],['épanouissement','B2'],['néanmoins','B2'],['incontournable','B2'],
+  ['susciter','C1'],['paradoxal','C1'],['préconiser','C1'],['dérive','C1'],['pérenniser','C1'],['discernement','C1'],
+  ['subséquent','C2'],['prolégomènes','C2'],['dilatoire','C2'],['irréfragable','C2'],['obérer','C2'],['palimpseste','C2']
 ];
 
 function renderVocabularyTest(){
@@ -112,16 +129,18 @@ function renderVocabularyTest(){
 }
 
 function vocabularyLevel(){
-  const counts={A1:0,A2:0,B1:0,B2:0};vocabTest.selected.forEach(i=>counts[vocabularyBank[i][1]]++);
-  if(counts.B2>=3&&counts.B1>=3)return 'B2';
-  if(counts.B1>=3&&counts.A2>=3)return 'B1';
-  return 'A2';
+  const counts={A1:0,A2:0,B1:0,B2:0,C1:0,C2:0};vocabTest.selected.forEach(i=>counts[vocabularyBank[i][1]]++);
+  const levels=['A1','A2','B1','B2','C1','C2'];let result='A1';
+  levels.forEach((level,i)=>{const lowerKnown=levels.slice(0,i).reduce((sum,l)=>sum+counts[l],0);if(counts[level]>=3&&lowerKnown>=Math.max(0,i*2))result=level;});
+  return result;
 }
 
 function renderVocabularyResult(){
   const level=vocabularyLevel();state.profile.level=level;
-  const content={zh:{tag:'词汇测试完成',title:`建议从 ${level} 开始`,desc:{A2:'先从问候、点餐、购物、朋友和周末计划等简单对话开始。',B1:'从自然的日常对话开始，逐渐练习解释理由、讲述经历和表达偏好。',B2:'日常对话会快速热身，之后进入工作、社会现象与价值判断等深层讨论。'}[level],start:'进入第一次对话',retry:'重新测试'},en:{tag:'VOCABULARY CHECK COMPLETE',title:`Start at ${level}`,desc:{A2:'Begin with simple conversations about greetings, food, shopping, friends, and weekend plans.',B1:'Start with natural daily conversation, then practise reasons, experiences, and preferences.',B2:'Warm up with daily language, then move into deeper discussions about work, society, and values.'}[level],start:'Start my first dialogue',retry:'Retake test'},es:{tag:'PRUEBA TERMINADA',title:`Empieza en ${level}`,desc:{A2:'Empieza con conversaciones sencillas sobre saludos, comida, compras, amigos y planes.',B1:'Empieza con conversaciones cotidianas y practica razones, experiencias y preferencias.',B2:'Calienta con lenguaje cotidiano y pasa a debates sobre trabajo, sociedad y valores.'}[level],start:'Empezar el primer diálogo',retry:'Repetir'}}[state.profile.language];
-  document.querySelector('#app').innerHTML=shell(`<section class="result-page"><div class="level-orbit"><span>${level}</span></div><p class="overline">${content.tag}</p><h1>${content.title}</h1><p>${content.desc}</p><div class="level-path"><span class="${level==='A2'?'active':''}"><b>A2</b> Simple dialogue</span><i></i><span class="${level==='B1'?'active':''}"><b>B1</b> Daily conversation</span><i></i><span class="${level==='B2'?'active':''}"><b>B2</b> Deep discussion</span></div><div class="complete-actions"><button class="secondary" id="retry-vocab">${content.retry}</button><button class="primary compact" id="accept-vocab">${content.start} ${icon('arrow',18)}</button></div></section>`,'practice');bindNav();document.querySelector('#retry-vocab').onclick=renderVocabularyTest;document.querySelector('#accept-vocab').onclick=()=>{state.profile.configured=true;state.day=1;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
+  const descriptions={zh:{A1:'从打招呼、自我介绍和最基本的生活词汇开始。',A2:'从问路、点餐、购物、朋友和计划等简单对话开始。',B1:'从自然日常对话开始，练习理由、经历和偏好。',B2:'日常热身后进入工作、社会现象和观点讨论。',C1:'训练细腻观点、语域选择、隐含意义和专业讨论。',C2:'进入高度抽象、文化与修辞层面的精确表达。'},en:{A1:'Start with greetings, introductions, and essential everyday words.',A2:'Begin with simple dialogues about food, shopping, friends, and plans.',B1:'Practise natural daily conversation, reasons, experiences, and preferences.',B2:'Warm up with daily language, then discuss work, society, and viewpoints.',C1:'Practise nuance, register, implied meaning, and professional discussion.',C2:'Work on highly abstract, cultural, and rhetorically precise expression.'},es:{A1:'Empieza con saludos, presentaciones y vocabulario cotidiano esencial.',A2:'Empieza con diálogos sencillos sobre comida, compras, amigos y planes.',B1:'Practica conversaciones naturales, razones, experiencias y preferencias.',B2:'Después de un calentamiento cotidiano, debate trabajo y sociedad.',C1:'Practica matices, registros, sentidos implícitos y temas profesionales.',C2:'Trabaja la expresión abstracta, cultural y retóricamente precisa.'}};
+  const content={zh:{tag:'词汇测试完成',title:`建议从 ${level} 开始`,start:'进入第一次对话',retry:'重新测试'},en:{tag:'VOCABULARY CHECK COMPLETE',title:`Start at ${level}`,start:'Start my first dialogue',retry:'Retake test'},es:{tag:'PRUEBA TERMINADA',title:`Empieza en ${level}`,start:'Empezar el primer diálogo',retry:'Repetir'}}[state.profile.language];content.desc=descriptions[state.profile.language][level];
+  const levelNames={A1:'First words',A2:'Simple dialogue',B1:'Daily conversation',B2:'Discussion',C1:'Nuance',C2:'Mastery'};
+  document.querySelector('#app').innerHTML=shell(`<section class="result-page"><div class="level-orbit"><span>${level}</span></div><p class="overline">${content.tag}</p><h1>${content.title}</h1><p>${content.desc}</p><div class="level-path full-path">${['A1','A2','B1','B2','C1','C2'].map((l,i)=>`${i?'<i></i>':''}<span class="${level===l?'active':''}"><b>${l}</b>${levelNames[l]}</span>`).join('')}</div><div class="complete-actions"><button class="secondary" id="retry-vocab">${content.retry}</button><button class="primary compact" id="accept-vocab">${content.start} ${icon('arrow',18)}</button></div></section>`,'practice');bindNav();document.querySelector('#retry-vocab').onclick=renderVocabularyTest;document.querySelector('#accept-vocab').onclick=()=>{state.profile.configured=true;state.day=1;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
 }
 
 const placementQuestions={
@@ -181,13 +200,13 @@ function renderPractice() {
         <div class="voice-input"><textarea id="answer" placeholder="Je pense que…" maxlength="600">${session.answer}</textarea><button class="mic-button" id="mic-answer" aria-label="${t('speak')}">${icon('mic',21)}<span>${t('speak')}</span></button></div>
         <div class="speech-status" id="speech-status" aria-live="polite"></div>
         <div class="input-meta"><span id="word-count">${countWords(session.answer)} ${t('words')}</span><span>${t('hint')}</span></div>
-        <button id="analyze" class="primary" ${countWords(session.answer) < 5 ? 'disabled' : ''}>${t('find')} ${icon('arrow',18)}</button>
+        <button id="analyze" class="primary" ${countWords(session.answer) < minimumWords() ? 'disabled' : ''}>${t('find')} ${icon('arrow',18)}</button>
       </div>
       <p class="privacy">${t('saved')}</p>
     </section>`);
     bindNav();
     const area = document.querySelector('#answer');
-    area.addEventListener('input', () => { session.answer = area.value; document.querySelector('#word-count').textContent = `${countWords(area.value)} ${t('words')}`; document.querySelector('#analyze').disabled = countWords(area.value) < 5; });
+    area.addEventListener('input', () => { session.answer = area.value; document.querySelector('#word-count').textContent = `${countWords(area.value)} ${t('words')}`; document.querySelector('#analyze').disabled = countWords(area.value) < minimumWords(); });
     document.querySelector('#listen-prompt').onclick = () => speakFrench(frenchAudioPrompt());
     setupSpeechInput('mic-answer', 'answer', 'speech-status', value => { session.answer = value; });
     document.querySelector('#analyze').onclick = () => { session.answer = area.value; session.step = 'gaps'; renderPractice(); };
@@ -197,9 +216,15 @@ function renderPractice() {
 }
 
 function countWords(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
+function minimumWords(){return state.profile.level==='A1'?2:state.profile.level==='A2'?3:5;}
 
 function detectGaps() {
   const a = session.answer.toLowerCase();
+  if(state.profile.level==='A1') return [
+    {id:'moi-cest',expression:'Moi, c’est…',meaning:{zh:'我是……／我叫……',en:'I’m… / my name is…',es:'Soy… / me llamo…'}[state.profile.language],why:{zh:'法国日常自我介绍里很自然。',en:'Very natural in casual French introductions.',es:'Muy natural al presentarse en francés.'}[state.profile.language],example:"Bonjour, moi, c’est Lina.",natural:"En France, on dit souvent « Moi, c’est… » dans une présentation informelle."},
+    {id:'jhabite-a',expression:'J’habite à + ville',meaning:{zh:'我住在……',en:'I live in…',es:'Vivo en…'}[state.profile.language],why:{zh:'城市前用 à，是最常见的说法。',en:'Use à before a city name.',es:'Se usa à delante de una ciudad.'}[state.profile.language],example:"J’habite à Lyon.",natural:"On dit « j’habite à Paris », mais « j’habite en France »."},
+    {id:'jaime-bien',expression:'J’aime bien…',meaning:{zh:'我挺喜欢……',en:'I quite like…',es:'Me gusta bastante…'}[state.profile.language],why:{zh:'比单说 j’aime 语气更轻松自然。',en:'Softer and very common in everyday speech.',es:'Más suave y muy común en el habla cotidiana.'}[state.profile.language],example:"J’aime bien le café.",natural:"Dans la conversation, « j’aime bien » est souvent plus naturel et moins fort que « j’aime »."}
+  ];
   if(state.profile.level==='A2') return [
     {id:'avoir-envie',expression:'avoir envie de + infinitif',meaning:{zh:'想要做……',en:'to feel like doing',es:'tener ganas de'}[state.profile.language],why:{zh:'表达日常计划时非常常用。',en:'Very useful for everyday plans.',es:'Muy útil para planes cotidianos.'}[state.profile.language],example:"J’ai envie de me promener après les cours."},
     {id:'retrouver',expression:'retrouver quelqu’un',meaning:{zh:'和某人会面',en:'to meet up with someone',es:'quedar con alguien'}[state.profile.language],why:{zh:'比单独使用 voir 更具体自然。',en:'More precise and natural than simply using voir.',es:'Más preciso y natural que usar solo voir.'}[state.profile.language],example:"Je vais retrouver une amie au café."},
@@ -223,7 +248,7 @@ function renderGaps() {
     <header class="compact-header"><button class="back" id="back">←</button><div><p class="overline">RETRIEVAL GAPS</p><h1>${t('gapTitle')}</h1></div></header>
     ${progress(1)}
     <div class="analysis-intro"><div class="insight-icon">${icon('spark',22)}</div><p>${t('analysis')}</p></div>
-    <div class="gap-grid">${gaps.map((g, i) => `<article class="gap-card"><div class="gap-top"><span>0${i+1}</span><button class="sound" aria-label="播放发音">${icon('volume',18)}</button></div><h2>${g.expression}</h2><p class="meaning">${g.meaning}</p><p class="why">${g.why}</p><div class="example">${g.example}</div></article>`).join('')}</div>
+    <div class="gap-grid">${gaps.map((g, i) => `<article class="gap-card"><div class="gap-top"><span>0${i+1}</span><button class="sound" aria-label="播放发音">${icon('volume',18)}</button></div><h2>${g.expression}</h2><p class="meaning">${g.meaning}</p><p class="why">${g.why}</p><div class="example">${g.example}</div><div class="france-usage"><b>🇫🇷 En France</b><span>${g.natural||`On entend souvent « ${g.expression} » dans la conversation quotidienne.`}</span></div></article>`).join('')}</div>
     <div class="action-row"><span>${t('only')}</span><button class="primary compact" id="activate">${t('activate')} ${icon('arrow',18)}</button></div>
   </section>`);
   bindNav(); document.querySelectorAll('.sound').forEach((b,i)=>b.onclick=()=>speakFrench(`${gaps[i].expression}. ${gaps[i].example}`)); document.querySelector('#back').onclick = () => { session.step='scenario'; renderPractice(); }; document.querySelector('#activate').onclick=()=>{session.selectedGaps=gaps;session.step='activate';renderPractice();};
@@ -237,16 +262,16 @@ function renderActivate() {
   bindNav(); document.querySelectorAll('[data-speak]').forEach(b=>b.onclick=()=>{const g=gaps[Number(b.dataset.speak)];speakFrench(`${g.expression}. ${g.example}`)}); const checks=[...document.querySelectorAll('.activation-check')]; checks.forEach(c=>c.onchange=()=>{const n=checks.filter(x=>x.checked).length;document.querySelector('#activation-status').textContent=`完成 ${n} / 3`;document.querySelector('#transfer').disabled=n<3;}); document.querySelector('#transfer').onclick=()=>{session.step='transfer';renderPractice();};
 }
 function activationPrompt(i,e){
-  const prompts={A2:["Après les cours, j’______ me promener.","Samedi, je vais ______ une amie.","J’aime cette activité parce que ______."],B1:["J’______ cuisiner le soir.","Je mange dehors ______.","Mon choix, ______ mon emploi du temps."],B2:["Pour moi, l’essentiel, c’est de ______ entre le travail et la vie privée.","Je ne veux pas réussir professionnellement ______ de ma santé.","Avant de choisir, il faut ______ ses priorités."]};
-  return prompts[state.profile.level][i] || e;
+  const prompts={A1:["Bonjour, ______ Lina.","______ Paris.","______ le café."],A2:["Après les cours, j’______ me promener.","Samedi, je vais ______ une amie.","J’aime cette activité parce que ______."],B1:["J’______ cuisiner le soir.","Je mange dehors ______.","Mon choix, ______ mon emploi du temps."],B2:["Pour moi, l’essentiel, c’est de ______ entre le travail et la vie privée.","Je ne veux pas réussir professionnellement ______ de ma santé.","Avant de choisir, il faut ______ ses priorités."]};
+  return (prompts[state.profile.level]||prompts.B2)[i] || e;
 }
 
 function renderTransfer() {
   const sc=currentScenario();
   if(session.transferDone){ return renderComplete(); }
   document.querySelector('#app').innerHTML=shell(`<section class="page practice-page"><header class="topbar"><div><p class="overline">TRANSFER TEST</p><h1>${t('transfer')}</h1></div><span class="subtle-tag">${t('noHint')}</span></header>${progress(3)}
-  <div class="practice-card transfer-card"><div class="prompt-number">02</div><p class="scenario-label">TRANSFER</p><h2>${sc.transfer}</h2><p class="helper">${t('transferHint')}</p><div class="answer-label"><label for="transfer-answer">${t('answer')}</label><button class="listen-prompt" id="listen-transfer">${icon('volume',16)} ${t('listen')}</button></div><div class="voice-input"><textarea id="transfer-answer" placeholder="Personnellement, je…" maxlength="600">${session.transferAnswer}</textarea><button class="mic-button" id="mic-transfer" aria-label="${t('speak')}">${icon('mic',21)}<span>${t('speak')}</span></button></div><div class="speech-status" id="speech-status" aria-live="polite"></div><div class="input-meta"><span id="word-count">${countWords(session.transferAnswer)} ${t('words')}</span><span>spaced retrieval</span></div><button class="primary" id="finish" ${countWords(session.transferAnswer)<5?'disabled':''}>${t('finish')} ${icon('check',18)}</button></div></section>`);
-  bindNav(); const area=document.querySelector('#transfer-answer');area.oninput=()=>{session.transferAnswer=area.value;document.querySelector('#word-count').textContent=`${countWords(area.value)} ${t('words')}`;document.querySelector('#finish').disabled=countWords(area.value)<5;}; document.querySelector('#listen-transfer').onclick=()=>speakFrench({A2:"Ton ami est libre samedi. Qu’est-ce que vous pouvez faire ensemble, et pourquoi ?",B1:"Un ami visite ta ville pour une journée. Où allez-vous manger, et pourquoi ?",B2:"Ton entreprise demande trois jours au bureau par semaine. Que penses-tu de cette décision ?"}[state.profile.level]); setupSpeechInput('mic-transfer','transfer-answer','speech-status',value=>{session.transferAnswer=value;}); document.querySelector('#finish').onclick=()=>completeSession(area.value);
+  <div class="practice-card transfer-card"><div class="prompt-number">02</div><p class="scenario-label">TRANSFER</p><h2>${sc.transfer}</h2><p class="helper">${t('transferHint')}</p><div class="answer-label"><label for="transfer-answer">${t('answer')}</label><button class="listen-prompt" id="listen-transfer">${icon('volume',16)} ${t('listen')}</button></div><div class="voice-input"><textarea id="transfer-answer" placeholder="Personnellement, je…" maxlength="600">${session.transferAnswer}</textarea><button class="mic-button" id="mic-transfer" aria-label="${t('speak')}">${icon('mic',21)}<span>${t('speak')}</span></button></div><div class="speech-status" id="speech-status" aria-live="polite"></div><div class="input-meta"><span id="word-count">${countWords(session.transferAnswer)} ${t('words')}</span><span>spaced retrieval</span></div><button class="primary" id="finish" ${countWords(session.transferAnswer)<minimumWords()?'disabled':''}>${t('finish')} ${icon('check',18)}</button></div></section>`);
+  bindNav(); const area=document.querySelector('#transfer-answer');area.oninput=()=>{session.transferAnswer=area.value;document.querySelector('#word-count').textContent=`${countWords(area.value)} ${t('words')}`;document.querySelector('#finish').disabled=countWords(area.value)<3;}; document.querySelector('#listen-transfer').onclick=()=>speakFrench({A1:"Tu préfères le café ou le thé ?",A2:"Ton ami est libre samedi. Qu’est-ce que vous pouvez faire ensemble ?",B1:"Un ami visite ta ville. Où allez-vous manger, et pourquoi ?",B2:"Ton entreprise demande trois jours au bureau. Qu’en penses-tu ?",C1:"Comment contesterais-tu cette idée dans une réunion formelle ?",C2:"Comment reformulerais-tu cette idée pour une émission de radio grand public ?"}[state.profile.level]); setupSpeechInput('mic-transfer','transfer-answer','speech-status',value=>{session.transferAnswer=value;}); document.querySelector('#finish').onclick=()=>completeSession(area.value);
 }
 
 function speakFrench(text) {
