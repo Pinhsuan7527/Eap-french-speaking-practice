@@ -264,7 +264,7 @@ function analyzeResponse(answer){
   const rules=[
     {re:/\bje habite\b/gi,wrong:'je habite',right:"j’habite",why:'元音前 je 要省音，写成 j’。'},
     {re:/\bje ai\b/gi,wrong:'je ai',right:"j’ai",why:'元音前 je 要省音。'},
-    {re:/\bà le\b/gi,wrong:'à le',right:'au',why:'à + le 必须缩合成 au。'},
+    {re:/à le\b/gi,wrong:'à le',right:'au',why:'à + le 必须缩合成 au。'},
     {re:/\bde le\b/gi,wrong:'de le',right:'du',why:'de + le 必须缩合成 du。'},
     {re:/\bbeaucoup des\b/gi,wrong:'beaucoup des',right:'beaucoup de',why:'数量表达 beaucoup 后通常使用 de。'},
     {re:/\bje suis (\d{1,2}) ans?\b/gi,wrong:'je suis … ans',right:"j’ai … ans",why:'法语用 avoir 表达年龄。'},
