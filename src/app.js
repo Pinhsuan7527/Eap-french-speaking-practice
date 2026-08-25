@@ -11,7 +11,7 @@ const state = loadState();
 state.profile ||= { configured: false, level: 'A2', language: 'zh', topic: 'daily', voice: 'claire' };
 state.profile.voice ||= 'claire';
 state.round ??= 0;
-let session = { step: 'scenario', answer: '', selectedGaps: [], transferAnswer: '', transferDone: false };
+let session = { step: 'scenario', answer: '', selectedGaps: [], transferAnswer: '', transferDone: false, analysis: null };
 let placement = { step: 0, answers: [], draft: '' };
 let vocabTest = { selected: new Set(), startedAt: 0, timer: null };
 
@@ -250,7 +250,7 @@ function renderPractice() {
     area.addEventListener('input', () => { session.answer = area.value; document.querySelector('#word-count').textContent = `${countWords(area.value)} ${t('words')}`; document.querySelector('#analyze').disabled = countWords(area.value) < minimumWords(); });
     document.querySelector('#listen-prompt').onclick = () => speakFrench(frenchAudioPrompt());
     setupSpeechInput('mic-answer', 'answer', 'speech-status', value => { session.answer = value; });
-    document.querySelector('#analyze').onclick = () => { session.answer = area.value; session.step = 'gaps'; renderPractice(); };
+    document.querySelector('#analyze').onclick = () => { session.answer = area.value; session.analysis=analyzeResponse(area.value); session.step = 'gaps'; renderPractice(); };
   } else if (session.step === 'gaps') renderGaps();
   else if (session.step === 'activate') renderActivate();
   else renderTransfer();
@@ -258,19 +258,70 @@ function renderPractice() {
 
 function countWords(text) { return text.trim() ? text.trim().split(/\s+/).length : 0; }
 function minimumWords(){return state.profile.level==='A1'?2:state.profile.level==='A2'?3:5;}
+function escapeHtml(text){return String(text).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));}
+
+function analyzeResponse(answer){
+  const rules=[
+    {re:/\bje habite\b/gi,wrong:'je habite',right:"j’habite",why:'元音前 je 要省音，写成 j’。'},
+    {re:/\bje ai\b/gi,wrong:'je ai',right:"j’ai",why:'元音前 je 要省音。'},
+    {re:/\bà le\b/gi,wrong:'à le',right:'au',why:'à + le 必须缩合成 au。'},
+    {re:/\bde le\b/gi,wrong:'de le',right:'du',why:'de + le 必须缩合成 du。'},
+    {re:/\bbeaucoup des\b/gi,wrong:'beaucoup des',right:'beaucoup de',why:'数量表达 beaucoup 后通常使用 de。'},
+    {re:/\bje suis (\d{1,2}) ans?\b/gi,wrong:'je suis … ans',right:"j’ai … ans",why:'法语用 avoir 表达年龄。'},
+    {re:/\bj['’]ai allé\b/gi,wrong:"j’ai allé",right:'je suis allé(e)',why:'aller 的复合过去时使用 être。'},
+    {re:/\bje vais au Paris\b/gi,wrong:'je vais au Paris',right:'je vais à Paris',why:'城市名称前通常使用 à。'},
+    {re:/\bplus mieux\b/gi,wrong:'plus mieux',right:'mieux',why:'mieux 已经表示“更好”，不再加 plus。'},
+    {re:/\bparce que donc\b/gi,wrong:'parce que donc',right:'parce que / donc',why:'原因和结果连接词不要叠加使用。'}
+  ];
+  const corrections=[];rules.forEach(rule=>{if(rule.re.test(answer))corrections.push(rule);rule.re.lastIndex=0;});
+  if(!/[.!?…]$/.test(answer.trim())&&countWords(answer)>7)corrections.push({wrong:'句末缺少标点',right:'在完整句末加句号',why:'清晰的断句能让表达更易理解。'});
+  const suggestions=detectGaps();
+  return {original:answer,corrections,suggestions,used:usedExpressions(answer,suggestions)};
+}
+
+const expressionPatterns={
+  'moi-cest':/moi[, ]+c['’]est/i,'jhabite-a':/j['’]habite\s+(à|en|au)/i,'jaime-bien':/j['’]aime bien/i,
+  'avoir-envie':/(j['’]|tu as|il a|elle a|nous avons|vous avez|ils ont)\s*envie de/i,'retrouver':/retrouv\w*/i,'ca-me-detend':/ça me détend/i,
+  'avoir-habitude':/l['’]habitude de/i,'de-temps-en-temps':/de temps en temps/i,'ca-depend':/ça dépend/i,
+  'je-vais-prendre':/je vais prendre/i,'sur-place':/(sur place|à emporter)/i,'sil-vous-plait':/s['’]il vous plaît/i,
+  'enfant-unique':/enfant unique/i,'habiter-avec':/(j['’]habite|habiter) avec/i,'sentendre-avec':/(s['’]entend|m['’]entends|t['’]entends) bien/i,
+  'il-me-faut':/il me faut/i,'faire-courses':/(faire|fais|fait|faisons|faites|font) les courses/i,'combien-ca-coute':/(ça coûte combien|combien ça coûte)/i,
+  'prendre-metro':/(prendre|prends|prend|prenons|prenez|prennent) (le métro|le bus)/i,'a-pied':/à pied/i,'ca-me-prend':/ça me prend/i,
+  'equilibre':/(trouver|garder|avoir) un (bon )?équilibre/i,'au-detriment':/au détriment de/i,'tenir-compte':/tenir compte de/i
+};
+function expressionUsed(answer,gap){return (expressionPatterns[gap.id]||new RegExp(gap.expression.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').split(' + ')[0],'i')).test(answer);}
+function usedExpressions(answer,gaps){return gaps.filter(g=>expressionUsed(answer,g));}
 
 function detectGaps() {
   const a = session.answer.toLowerCase();
+  const topic=state.round%3;
+  if(state.profile.level==='A1'&&topic===1)return[
+    {id:'je-vais-prendre',expression:'Je vais prendre…',meaning:'我要……',why:'在法国咖啡馆点单最自然、最常见。',example:"Je vais prendre un café, s’il vous plaît.",natural:'点单时法国人常说 « Je vais prendre… »，比 « je veux » 更自然礼貌。'},
+    {id:'sur-place',expression:'sur place / à emporter',meaning:'堂食／外带',why:'店员很可能会直接这样问你。',example:"C’est sur place, s’il vous plaît.",natural:'法国店员常问 « Sur place ou à emporter ? »'},
+    {id:'sil-vous-plait',expression:'s’il vous plaît',meaning:'请',why:'点单结尾加上它更符合日常礼貌习惯。',example:"Un thé, s’il vous plaît.",natural:'口语点单可以省略完整句，但通常保留 « s’il vous plaît »。'}];
+  if(state.profile.level==='A1'&&topic===2)return[
+    {id:'enfant-unique',expression:'être enfant unique',meaning:'是独生子女',why:'介绍家庭成员时非常实用。',example:"Je suis enfant unique.",natural:'法国人直接说 « Je suis enfant unique »。'},
+    {id:'habiter-avec',expression:'habiter avec',meaning:'和……一起住',why:'准确说明你的居住情况。',example:"J’habite avec ma sœur.",natural:'日常更常用 « habiter avec »，正式语境才常见 « résider avec »。'},
+    {id:'sentendre-avec',expression:"bien s’entendre avec",meaning:'和……相处得好',why:'让家庭介绍不只停留在人数。',example:"Je m’entends bien avec mon frère.",natural:'« On s’entend bien » 是法国日常极常见的说法。'}];
   if(state.profile.level==='A1') return [
     {id:'moi-cest',expression:'Moi, c’est…',meaning:{zh:'我是……／我叫……',en:'I’m… / my name is…',es:'Soy… / me llamo…'}[state.profile.language],why:{zh:'法国日常自我介绍里很自然。',en:'Very natural in casual French introductions.',es:'Muy natural al presentarse en francés.'}[state.profile.language],example:"Bonjour, moi, c’est Lina.",natural:"En France, on dit souvent « Moi, c’est… » dans une présentation informelle."},
     {id:'jhabite-a',expression:'J’habite à + ville',meaning:{zh:'我住在……',en:'I live in…',es:'Vivo en…'}[state.profile.language],why:{zh:'城市前用 à，是最常见的说法。',en:'Use à before a city name.',es:'Se usa à delante de una ciudad.'}[state.profile.language],example:"J’habite à Lyon.",natural:"On dit « j’habite à Paris », mais « j’habite en France »."},
     {id:'jaime-bien',expression:'J’aime bien…',meaning:{zh:'我挺喜欢……',en:'I quite like…',es:'Me gusta bastante…'}[state.profile.language],why:{zh:'比单说 j’aime 语气更轻松自然。',en:'Softer and very common in everyday speech.',es:'Más suave y muy común en el habla cotidiana.'}[state.profile.language],example:"J’aime bien le café.",natural:"Dans la conversation, « j’aime bien » est souvent plus naturel et moins fort que « j’aime »."}
   ];
   if(state.profile.level==='A2') return [
+    ...(topic===1?[
+      {id:'il-me-faut',expression:'Il me faut…',meaning:'我需要……',why:'买东西时比逐字翻译“我想要”更自然。',example:"Il me faut des tomates.",natural:'列购物需求时常说 « Il me faut… »。'},
+      {id:'faire-courses',expression:'faire les courses',meaning:'买日常用品／买菜',why:'法国人描述日常采购的固定说法。',example:"Je fais les courses le samedi.",natural:'« faire du shopping » 多指逛街买衣物；买菜用 « faire les courses »。'},
+      {id:'combien-ca-coute',expression:'Ça coûte combien ?',meaning:'这个多少钱？',why:'简单直接的日常问价表达。',example:"Excusez-moi, ça coûte combien ?",natural:'口语常说 « Ça coûte combien ? »；« Combien cela coûte-t-il ? » 更正式。'}
+    ]:topic===2?[
+      {id:'prendre-metro',expression:'prendre le métro / le bus',meaning:'乘地铁／公交',why:'法语使用 prendre 表达乘坐交通工具。',example:"Je prends le métro tous les jours.",natural:'不要逐字说 « utiliser le métro »；日常通常说 « prendre le métro »。'},
+      {id:'a-pied',expression:'à pied',meaning:'步行',why:'回答出行方式的高频短语。',example:"J’y vais à pied.",natural:'法国日常常用 « J’y vais à pied »，y 代替前面提过的地点。'},
+      {id:'ca-me-prend',expression:'ça me prend + durée',meaning:'这要花我……时间',why:'可以自然补充通勤时长。',example:"Ça me prend vingt minutes.",natural:'口语中 « Ça me prend vingt minutes » 很自然。'}
+    ]:[
     {id:'avoir-envie',expression:'avoir envie de + infinitif',meaning:{zh:'想要做……',en:'to feel like doing',es:'tener ganas de'}[state.profile.language],why:{zh:'表达日常计划时非常常用。',en:'Very useful for everyday plans.',es:'Muy útil para planes cotidianos.'}[state.profile.language],example:"J’ai envie de me promener après les cours."},
     {id:'retrouver',expression:'retrouver quelqu’un',meaning:{zh:'和某人会面',en:'to meet up with someone',es:'quedar con alguien'}[state.profile.language],why:{zh:'比单独使用 voir 更具体自然。',en:'More precise and natural than simply using voir.',es:'Más preciso y natural que usar solo voir.'}[state.profile.language],example:"Je vais retrouver une amie au café."},
     {id:'ca-me-detend',expression:'ça me détend',meaning:{zh:'这让我放松',en:'it helps me relax',es:'me relaja'}[state.profile.language],why:{zh:'用简单句说明你喜欢某件事的原因。',en:'A simple way to explain why you enjoy something.',es:'Una forma sencilla de explicar por qué te gusta algo.'}[state.profile.language],example:"J’aime marcher parce que ça me détend."}
-  ];
+    ])];
   if(state.profile.level==='B1') return [
     {id:'avoir-habitude',expression:'avoir l’habitude de',meaning:{zh:'习惯于',en:'to be used to',es:'tener la costumbre de'}[state.profile.language],why:'A useful chunk for describing your routine.',example:"J’ai l’habitude de cuisiner le soir."},
     {id:'de-temps-en-temps',expression:'de temps en temps',meaning:{zh:'偶尔',en:'from time to time',es:'de vez en cuando'}[state.profile.language],why:'It makes frequency sound natural.',example:"Je mange au restaurant de temps en temps."},
@@ -284,11 +335,12 @@ function detectGaps() {
 }
 
 function renderGaps() {
-  const gaps = detectGaps();
+  const analysis=session.analysis||analyzeResponse(session.answer);const gaps = analysis.suggestions;
   document.querySelector('#app').innerHTML = shell(`<section class="page">
     <header class="compact-header"><button class="back" id="back">←</button><div><p class="overline">RETRIEVAL GAPS</p><h1>${t('gapTitle')}</h1></div></header>
     ${progress(1)}
-    <div class="analysis-intro"><div class="insight-icon">${icon('spark',22)}</div><p>${t('analysis')}</p></div>
+    <div class="answer-analysis"><div class="original-answer"><span>你的原始回答</span><p>${escapeHtml(analysis.original)}</p></div><div class="grammar-review"><span>语法检查</span>${analysis.corrections.length?analysis.corrections.map(c=>`<div class="correction"><del>${c.wrong}</del><b>→</b><ins>${c.right}</ins><small>${c.why}</small></div>`).join(''):`<p class="no-errors">没有检测到明显的基础语法错误。接下来重点提升表达的自然度。</p>`}</div></div>
+    <div class="analysis-intro"><div class="insight-icon">${icon('spark',22)}</div><p>根据你刚才表达的内容，下面是 3 个可以立即加入答案的高价值短语。推荐不等于“已经使用”。</p></div>
     <div class="gap-grid">${gaps.map((g, i) => `<article class="gap-card"><div class="gap-top"><span>0${i+1}</span><button class="sound" aria-label="播放发音">${icon('volume',18)}</button></div><h2>${g.expression}</h2><p class="meaning">${g.meaning}</p><p class="why">${g.why}</p><div class="example">${g.example}</div><div class="france-usage"><b>🇫🇷 En France</b><span>${g.natural||`On entend souvent « ${g.expression} » dans la conversation quotidienne.`}</span></div></article>`).join('')}</div>
     <div class="action-row"><span>${t('only')}</span><button class="primary compact" id="activate">${t('activate')} ${icon('arrow',18)}</button></div>
   </section>`);
@@ -337,7 +389,7 @@ function previewVoice(button){
 function setupSpeechInput(buttonId, textareaId, statusId, onValue) {
   const button = document.getElementById(buttonId), area = document.getElementById(textareaId), status = document.getElementById(statusId);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) { button.classList.add('unsupported'); button.querySelector('span').textContent = '此浏览器不支持语音'; button.disabled = true; return; }
+  if (!Recognition) { setupRecorderFallback(button,status); return; }
   let recognition = null, listening = false, original = '';
   button.onclick = () => {
     if (listening) { recognition.stop(); return; }
@@ -350,17 +402,27 @@ function setupSpeechInput(buttonId, textareaId, statusId, onValue) {
   };
 }
 
+function setupRecorderFallback(button,status){
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){button.querySelector('span').textContent='请使用键盘语音输入';status.textContent='此浏览器不支持网页录音。可点击手机键盘上的麦克风进行法语听写。';return;}
+  let recorder=null,chunks=[],stream=null;
+  button.querySelector('span').textContent='录音回答';
+  button.onclick=async()=>{
+    if(recorder?.state==='recording'){recorder.stop();return;}
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:true});recorder=new MediaRecorder(stream);chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);recorder.onstart=()=>{button.classList.add('recording');button.innerHTML=`${icon('stop',18)}<span>正在录音… 点击结束</span>`;status.textContent='正在录音。此浏览器不支持自动转文字，结束后可回放并在文本框补充答案。';};recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());button.classList.remove('recording');button.innerHTML=`${icon('mic',21)}<span>重新录音</span>`;const old=status.parentElement.querySelector('.voice-playback');if(old)old.remove();const audio=document.createElement('audio');audio.className='voice-playback';audio.controls=true;audio.src=URL.createObjectURL(new Blob(chunks,{type:recorder.mimeType}));status.after(audio);status.textContent='录音已保存。请回放确认，并在上方文本框补充法语文字以获得语法分析。';};recorder.start();}catch(e){status.textContent='无法访问麦克风。请在浏览器设置中允许此网站使用麦克风。';}
+  };
+}
+
 function completeSession(answer){
   session.transferAnswer=answer; const gaps=session.selectedGaps.length?session.selectedGaps:detectGaps();
-  gaps.forEach(g=>{const existing=state.map.find(x=>x.id===g.id);if(!existing)state.map.push({...g,status:'Emerging',reviews:1,due:'2 天后'});else{existing.reviews=(existing.reviews||0)+1;existing.status=existing.reviews>=4?'Automatic':existing.reviews>=3?'Active':'Emerging';existing.due=existing.status==='Automatic'?'7 天后':'2 天后';}});
+  const combined=`${session.answer} ${answer}`;gaps.forEach(g=>{const used=expressionUsed(combined,g);const existing=state.map.find(x=>x.id===g.id);if(!existing)state.map.push({...g,status:used?'Emerging':'Passive',reviews:used?1:0,due:used?'2 天后':'下个主题'});else if(used){existing.reviews=(existing.reviews||0)+1;existing.status=existing.reviews>=4?'Automatic':existing.reviews>=3?'Active':'Emerging';existing.due=existing.status==='Automatic'?'7 天后':'2 天后';}});
   state.streak=Math.max(state.streak,3);state.xp+=1;saveState();session.transferDone=true;renderComplete();
 }
 
 function renderComplete(){
-  const learned=session.selectedGaps.length?session.selectedGaps:detectGaps();const hit=learned.some(g=>session.transferAnswer.toLowerCase().includes(g.expression.split(' ')[0].replace(/[’']/g,"'")));
+  const learned=session.selectedGaps.length?session.selectedGaps:detectGaps();const actuallyUsed=usedExpressions(`${session.answer} ${session.transferAnswer}`,learned);const hit=actuallyUsed.length>0;
   const completedRound=(state.round%3)+1;
-  document.querySelector('#app').innerHTML=shell(`<section class="page complete-page">${progress(3)}<div class="complete-mark">${icon('check',34)}</div><p class="overline">DAY ${state.day} · ROUND ${completedRound}</p><h1>今天，你把知识变成了表达。</h1><p class="complete-copy">${hit?'你在新情境中自然调用了刚激活的表达。':'表达已经进入 Active Map。下个主题会再次给你调用它们的机会。'}</p><div class="result-strip"><div><strong>3</strong><span>已激活</span></div><div><strong>${completedRound}</strong><span>今日已练主题</span></div><div><strong>${Math.max(0,3-completedRound)}</strong><span>建议继续主题</span></div></div><div class="complete-actions"><button class="secondary" data-nav="map">查看 Active Map</button><button class="primary compact" id="restart">${t('nextTopic')} ${icon('arrow',18)}</button></div></section>`);
-  bindNav();document.querySelector('#restart').onclick=()=>{state.round++;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false};renderPractice();};
+  document.querySelector('#app').innerHTML=shell(`<section class="page complete-page">${progress(3)}<div class="complete-mark">${icon('check',34)}</div><p class="overline">DAY ${state.day} · ROUND ${completedRound}</p><h1>本轮练习完成。</h1><p class="complete-copy">${hit?`实际检测到你使用了：${actuallyUsed.map(g=>`「${g.expression}」`).join('、')}。`:'本轮没有检测到你实际使用推荐短语，因此它们只会进入 Passive。下个主题会再次给你练习机会。'}</p><div class="result-strip"><div><strong>${actuallyUsed.length}</strong><span>实际使用短语</span></div><div><strong>${learned.length-actuallyUsed.length}</strong><span>待练推荐短语</span></div><div><strong>${completedRound}</strong><span>今日已练主题</span></div></div><div class="recommended-recap"><span>下轮可以尝试</span>${learned.filter(g=>!actuallyUsed.includes(g)).map(g=>`<b>${g.expression}</b>`).join('')}</div><div class="complete-actions"><button class="secondary" data-nav="map">查看 Active Map</button><button class="primary compact" id="restart">${t('nextTopic')} ${icon('arrow',18)}</button></div></section>`);
+  bindNav();document.querySelector('#restart').onclick=()=>{state.round++;saveState();session={step:'scenario',answer:'',selectedGaps:[],transferAnswer:'',transferDone:false,analysis:null};renderPractice();};
 }
 
 function renderMap(){
